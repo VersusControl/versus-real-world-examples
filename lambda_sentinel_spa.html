@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serverless Sentinel: Real-time AWS Lambda Function Alerts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Visualization & Content Choices:
+        - Overall Workflow Diagram (HTML/CSS): Goal: Inform/Organize. Shows high-level process. Interaction: None, static visual. Justification: Provides context. Method: HTML/CSS boxes and arrows.
+        - Text Blocks: Goal: Inform. JS show/hide for details. Justification: Manages information density.
+        - Code Snippets (CLI commands, JSON policies, Go Template): Goal: Inform/Enable. JS copy-to-clipboard. Justification: User utility. Method: <pre><code> styled with Tailwind.
+        - No data charts are needed as this is a how-to guide.
+        -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-color: #f59e0b; /* yellow-500 for Lambda theme */
+            color: #f59e0b;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .code-block {
+            position: relative;
+            background-color: #1f2937; /* gray-800 */
+            color: #d1d5db; /* gray-300 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4b5563; /* gray-600 */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .copy-button:hover {
+            background-color: #6b7280; /* gray-500 */
+        }
+        .tooltip {
+            position: fixed;
+            background-color: #10b981; /* green-500 */
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .tooltip.show {
+            opacity: 1;
+        }
+        .details-toggle {
+            cursor: pointer;
+            color: #ca8a04; /* yellow-600 */
+            font-weight: 500;
+        }
+        .details-content {
+            display: none;
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            border-left: 2px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 1rem;
+            background-color: #f9fafb; /* gray-50 */
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-step {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* gray-300 */
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.375rem;
+            text-align: center;
+            min-width: 180px; 
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            width: fit-content; 
+            max-width: 90%; 
+        }
+        .workflow-arrow {
+            color: #6b7280; /* gray-500 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem; 
+            padding: 0.1rem 0; 
+            line-height: 1;
+        }
+        
+        .icon-lambda { color: #FF8C00; } 
+        .icon-cloudwatch { color: #0ea5e9; } /* sky-500 for CloudWatch */
+        .icon-sns { color: #D82C22; } 
+        .icon-versus { color: #4A5568; } 
+        .icon-slack { color: #4A154B; } 
+        .icon-code { color: #2563eb; }
+        .icon-aws { color: #FF9900; }
+        .icon-metrics { color: #ec4899; } /* pink-500 for metrics */
+        .icon-alarm { color: #ef4444; } /* red-500 for alarm */
+
+
+         .home-link {
+            display: inline-block;
+            margin-bottom: 1.5rem; 
+            font-size: 0.875rem; 
+            color: #4b5563; 
+            transition: color 0.3s ease;
+        }
+        .home-link:hover {
+            color: #f59e0b; /* yellow-500 - same as active tab color */
+        }
+
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        
+        <div class="text-left">
+            <a href="index.html" class="home-link group">
+                <i class="fas fa-home mr-1 opacity-75 group-hover:opacity-100"></i> Back to All Guides
+            </a>
+        </div>
+
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Serverless Sentinel: Real-time AWS Lambda Alerts</h1>
+            <p class="mt-2 text-lg text-slate-600">Keep your serverless apps healthy! Get instant Slack alerts for Lambda errors, throttles, and more.</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center border-b border-slate-300">
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600 active" data-tab="intro">Introduction</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="challenge">The Challenge</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="solution">Our Solution</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="step1">Step 1: Lambda Metrics</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="step2">Step 2: CloudWatch Alarms</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="step3">Step 3: SNS Topic</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="step4">Step 4: Versus & Slack</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="step5">Step 5: Testing</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-yellow-500 hover:text-yellow-600" data-tab="conclusion">Conclusion</button>
+        </nav>
+
+        <main class="bg-white p-6 sm:p-8 rounded-lg shadow-xl">
+            <section id="intro" class="tab-content active">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Introduction to Lambda Function Monitoring</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">AWS Lambda has revolutionized serverless computing, but like any application component, functions can encounter issues. This "Serverless Sentinel" guide will equip you to proactively monitor your Lambda functions for critical events such as errors, throttling, and unusual invocation patterns. By setting up real-time alerts delivered to Slack via CloudWatch, SNS, and Versus Incident, you can ensure the health and performance of your serverless applications, identify problems quickly, and minimize any potential impact on your users or downstream services.</p>
+            </section>
+
+            <section id="challenge" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">The Challenge: What Can Go Wrong with Lambda?</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">While Lambda manages the underlying infrastructure, your function code and configurations can still lead to problems:</p>
+                <ul class="list-disc list-inside mb-4 space-y-2 text-slate-700">
+                    <li><strong>Function Errors:</strong> Unhandled exceptions in your code, timeouts, or out-of-memory issues.</li>
+                    <li><strong>Throttling:</strong> Exceeding concurrent execution limits, leading to dropped invocations and degraded performance.</li>
+                    <li><strong>Performance Degradation:</strong> Increased execution duration, indicating inefficiencies or upstream service issues.</li>
+                    <li><strong>Cost Anomalies:</strong> Unexpectedly high invocation counts or durations leading to increased bills.</li>
+                    <li><strong>Configuration Issues:</strong> Incorrect IAM permissions, VPC settings, or environment variables affecting function behavior.</li>
+                </ul>
+                <p class="text-slate-700 leading-relaxed">Without proactive monitoring and alerting, these issues can go unnoticed, impacting application reliability and user experience.</p>
+            </section>
+
+            <section id="solution" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Our Solution: Toolkit & Workflow</h2>
+                <p class="mb-6 text-slate-700 leading-relaxed">We'll set up an alerting pipeline using these AWS services and tools:</p>
+                <ul class="list-disc list-inside mb-6 space-y-2 text-slate-700">
+                    <li><i class="fas fa-bolt mr-2 icon-lambda"></i><strong>AWS Lambda:</strong> The serverless functions we are monitoring.</li>
+                    <li><i class="fas fa-chart-line mr-2 icon-metrics"></i><strong>Amazon CloudWatch Metrics:</strong> Lambda automatically publishes operational metrics (Errors, Invocations, Duration, Throttles, etc.).</li>
+                    <li><i class="fas fa-bell mr-2 icon-alarm"></i><strong>Amazon CloudWatch Alarms:</strong> To trigger alerts based on thresholds set on Lambda metrics.</li>
+                    <li><i class="fas fa-paper-plane mr-2 icon-sns"></i><strong>Amazon SNS:</strong> To publish alarm notifications.</li>
+                    <li><i class="fas fa-cogs mr-2 icon-versus"></i><strong>Versus Incident:</strong> To receive SNS notifications and forward them to Slack.</li>
+                    <li><i class="fab fa-slack mr-2 icon-slack"></i><strong>Slack:</strong> Our destination for real-time alerts.</li>
+                </ul>
+                <h3 class="text-xl font-semibold mb-4 text-slate-800">Overall Workflow Diagram</h3>
+                <div class="workflow-diagram my-6">
+                    <div class="workflow-step"><i class="fas fa-bolt mr-2 icon-lambda"></i>Lambda Function Execution</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-chart-line mr-2 icon-metrics"></i>CloudWatch Metrics (Errors, Throttles, etc.)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-bell mr-2 icon-alarm"></i>CloudWatch Alarm</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-cogs mr-2 icon-versus"></i>Versus Incident</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fab fa-slack mr-2 icon-slack"></i>Slack Alert</div>
+                </div>
+            </section>
+
+            <section id="step1" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Step 1: Understanding Key Lambda Metrics</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">AWS Lambda automatically publishes several metrics to CloudWatch for each function. We'll focus on these critical ones for alerting:</p>
+                <ul class="list-disc list-inside space-y-3 mb-4 text-slate-700">
+                    <li><strong><code>Errors</code>:</strong> The number of invocations that resulted in a function error (e.g., unhandled exceptions, timeouts). Monitor the `Sum`.</li>
+                    <li><strong><code>Throttles</code>:</strong> The number of invocation requests that were throttled because they exceeded the concurrent execution limit for the function or account. Monitor the `Sum`.</li>
+                    <li><strong><code>Invocations</code>:</strong> The total number of times your function code was invoked. Useful for detecting unusual spikes or drops in activity. Monitor the `Sum` or `SampleCount`.</li>
+                    <li><strong><code>Duration</code>:</strong> The wall-clock time, in milliseconds, from when your function code starts executing as a result of an invocation to when it stops executing. Monitor the `Average` or `Maximum` (p90, p95, p99 percentiles are also good).</li>
+                    <li><strong><code>ConcurrentExecutions</code>:</strong> The number of function instances that are processing events. Useful for understanding concurrency patterns and potential bottlenecks. Monitor the `Maximum`.</li>
+                </ul>
+                <p class="text-slate-700 leading-relaxed">You can find these metrics in the CloudWatch console under "Metrics" -> "All metrics" -> "Lambda" -> "By Function Name".</p>
+            </section>
+
+            <section id="step2" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Step 2: Creating CloudWatch Alarms for Lambda</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Now, let's create CloudWatch Alarms for the metrics we identified.</p>
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">Example: Alarm for Lambda Errors</h3>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Navigate to the CloudWatch console, then "Alarms" -> "Create alarm."</li>
+                    <li>Click "Select metric." Find your Lambda function by name and select the `Errors` metric.</li>
+                    <li><strong>Metric configuration:</strong>
+                        <ul class="list-disc list-inside ml-6 mt-1 space-y-1">
+                            <li>Statistic: `Sum`</li>
+                            <li>Period: Choose an appropriate period, e.g., `1 minute` or `5 minutes`.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Conditions:</strong>
+                        <ul class="list-disc list-inside ml-6 mt-1 space-y-1">
+                            <li>Threshold type: `Static`</li>
+                            <li>Whenever `Errors` is: `Greater >` threshold value (e.g., `0` to alert on any error, or a higher number if some errors are expected and handled).</li>
+                            <li>Datapoints to alarm: e.g., `1 out of 1` for immediate alerting.</li>
+                        </ul>
+                    </li>
+                    <li>Click "Next."</li>
+                    <li>Configure actions: Select "Send notification to an SNS topic." Choose an existing topic or create a new one (e.g., `LambdaFunctionAlertsTopic`). We'll detail this in Step 3.</li>
+                    <li>Give your alarm a name (e.g., `MyLambdaFunction-Errors-High`) and description.</li>
+                    <li>Click "Create alarm."</li>
+                </ol>
+                <div class="details-toggle mt-4 mb-1" onclick="toggleDetails('other-lambda-alarms')"><i class="fas fa-plus-circle mr-1"></i> Show Configuration Ideas for Other Lambda Alarms</div>
+                <div id="other-lambda-alarms" class="details-content">
+                    <p class="text-sm text-slate-600 mb-2">Repeat the process for other important metrics:</p>
+                    <ul class="list-disc list-inside space-y-2 text-sm text-slate-600">
+                        <li><strong>Throttles:</strong> Metric `Throttles`, Statistic `Sum`, Threshold `Greater > 0`. Alerts if any invocations are throttled.</li>
+                        <li><strong>High Duration:</strong> Metric `Duration`, Statistic `Average` or `p90` (90th percentile). Threshold `Greater >` (e.g., 80% of your function's timeout). Alerts if your function is running slower than expected.</li>
+                        <li><strong>Low Invocation Count (Dead Function):</strong> Metric `Invocations`, Statistic `Sum`, Period (e.g., `1 hour` or `24 hours`), Threshold `Less <` (e.g., `1`). Alerts if a function that should be running frequently stops getting invoked.</li>
+                        <li><strong>High Invocation Count (Unexpected Spike):</strong> Metric `Invocations`, Statistic `Sum`, Period (e.g., `5 minutes`), Threshold `Greater >` (a value significantly above normal peak). Alerts on unusual traffic spikes.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="step3" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Step 3: Setting up the SNS Topic</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">This SNS topic will receive notifications from your CloudWatch Alarms.</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Navigate to the Amazon SNS console.</li>
+                    <li>Click "Topics," then "Create topic."</li>
+                    <li>Type: "Standard."</li>
+                    <li>Name: e.g., `LambdaFunctionAlertsTopic` (matching what you set in your CloudWatch Alarms).</li>
+                    <li>Click "Create topic." Make a note of the Topic ARN.</li>
+                </ol>
+                <div class="mt-4 p-4 bg-sky-50 border border-sky-200 rounded-md text-sky-700">
+                    <i class="fas fa-info-circle mr-2"></i>This SNS topic is the central hub for all your Lambda alarm notifications before they are sent to Versus Incident.
+                </div>
+            </section>
+
+            <section id="step4" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Step 4: Integrating with Versus Incident & Slack</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Now, configure Versus Incident to listen to this SNS topic and relay alerts to Slack.</p>
+                
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">1. Deploy/Configure Versus Incident</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Ensure your Versus Incident deployment has `SNS_ENABLE=true` and your Slack integration details (token, channel ID) are correctly set.</p>
+                <div class="code-block">
+                    <pre><code>docker run -d \
+  -p 3000:3000 \
+  -e SLACK_ENABLE=true \
+  -e SLACK_TOKEN="your_slack_bot_token" \
+  -e SLACK_CHANNEL_ID="your_slack_channel_id" \
+  -e SNS_ENABLE=true \
+  --name versus-lambda-alerts \
+  ghcr.io/versuscontrol/versus-incident</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="mb-4 text-slate-700 text-sm italic">Expose Versus Incident publicly if running locally (e.g., using ngrok).</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">2. Subscribe Versus Incident to SNS Topic</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Subscribe your Versus Incident's `/sns` endpoint to the `LambdaFunctionAlertsTopic` ARN.</p>
+                <div class="code-block">
+                    <pre><code>aws sns subscribe \
+  --topic-arn arn:aws:sns:REGION:ACCOUNT_ID:LambdaFunctionAlertsTopic \
+  --protocol https \
+  --notification-endpoint https://your-versus-public-url/sns</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">3. Custom Slack Template for Lambda Alerts</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Create a template (e.g., `config/slack_lambda_alert_template.tmpl`) in Versus Incident for better-formatted Slack messages. CloudWatch Alarm SNS messages have a specific JSON structure.</p>
+                <div class="code-block">
+                    <pre><code>⚡ AWS Lambda Alert: {{.AlarmName}} ⚡
+
+**Status:** {{.NewStateValue}} (Reason: {{.NewStateReason}})
+**Function (from Alarm Desc):** {{.AlarmDescription}} 
+**Metric:** {{.Trigger.MetricName}} ({{.Trigger.Statistic}}) over {{.Trigger.Period}}s
+**Threshold:** {{.Trigger.ComparisonOperator}} {{.Trigger.Threshold}}
+**Time:** {{.StateChangeTime}}
+**AWS Account:** {{.AWSAccountId}}
+**Region:** {{.Region}}
+
+{{ if .Trigger.Dimensions }}
+**Dimensions:**
+{{range .Trigger.Dimensions}} - {{.name}}: {{.value}}
+{{end}}{{end}}
+
+<{{.NewStateReasonLink}}|View Alarm in AWS Console>
+
+{{ if .AckURL }}[Acknowledge this alert]({{.AckURL}}){{ end }}</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                 <p class="text-sm text-slate-600 mt-2">Note: The `NewStateReasonLink` is not a standard field from SNS; you might need to construct this link manually or adapt if your alerting tool provides it. The `AlarmDescription` often contains the function name if you set it up that way. Update your Versus Incident `config.yaml` to use this template.</p>
+            </section>
+
+            <section id="step5" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Step 5: Testing Your Lambda Alerts</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Let's trigger some alarms:</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li><strong>Test Error Alert:</strong> Modify a test Lambda function's code to intentionally throw an unhandled exception. Invoke it.</li>
+                    <li><strong>Test Throttle Alert (Harder to force):</strong> If you have a function with low concurrency limits, try invoking it many times simultaneously (e.g., using `aws lambda invoke` in a loop or an artillery test).</li>
+                    <li><strong>Test Duration Alert:</strong> Add a `time.sleep()` (Python) or equivalent in your test Lambda to make it exceed its configured alarm threshold for duration.</li>
+                    <li>Monitor your Slack channel. Alerts should appear based on your alarm configurations. Check CloudWatch Alarm history and SNS delivery status if troubleshooting.</li>
+                </ol>
+            </section>
+
+            <section id="conclusion" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-yellow-600">Conclusion: Proactive Serverless Monitoring</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Well done! You've set up the "Serverless Sentinel" to proactively monitor your AWS Lambda functions. These real-time alerts for errors, throttles, and performance issues are crucial for maintaining the reliability and efficiency of your serverless applications. This foundation allows you to catch problems early, reduce mean time to resolution (MTTR), and ensure a better experience for your users.</p>
+                 <p class="text-slate-700 leading-relaxed">Consider further enhancements like creating alarms for specific error messages using CloudWatch Logs Metric Filters on your Lambda logs, or setting up more sophisticated anomaly detection alarms.</p>
+            </section>
+        </main>
+    </div>
+
+    <div id="copy-tooltip" class="tooltip">Copied to clipboard!</div>
+
+    <script>
+        const tabs = document.querySelectorAll('.tab-button');
+        const contents = document.querySelectorAll('.tab-content');
+        const tooltip = document.getElementById('copy-tooltip');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(item => item.classList.remove('active'));
+                tab.classList.add('active');
+
+                const target = tab.getAttribute('data-tab');
+                contents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === target) {
+                        content.classList.add('active');
+                    }
+                });
+                document.querySelector('main').scrollTop = 0; 
+            });
+        });
+
+        function copyToClipboard(button) {
+            const codeBlock = button.previousElementSibling;
+            const textToCopy = codeBlock.textContent;
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showTooltip(button);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showTooltip(button) {
+            const rect = button.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + window.scrollX}px`;
+            tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            tooltip.classList.add('show');
+            setTimeout(() => {
+                tooltip.classList.remove('show');
+            }, 1500);
+        }
+        
+        function toggleDetails(elementId) {
+            const content = document.getElementById(elementId);
+            const iconElement = content.previousElementSibling.querySelector('i');
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                iconElement.classList.remove('fa-minus-circle');
+                iconElement.classList.add('fa-plus-circle');
+            } else {
+                content.style.display = 'block';
+                iconElement.classList.remove('fa-plus-circle');
+                iconElement.classList.add('fa-minus-circle');
+            }
+        }
+
+        if (contents.length > 0) {
+            contents[0].classList.add('active');
+        }
+        if (tabs.length > 0) {
+            tabs[0].classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -3,13 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Interactive Tech Guides</title>
+    <title>Versus Interactive Tech Guides</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Visualization & Content Choices:
-        - Post Listing (Cards): Goal: Inform & Navigate. Each card will display a summary of a guide and a link. Interaction: Click to navigate to the guide's HTML page. Justification: This is a standard and highly effective method for presenting a collection of articles or guides, allowing users to quickly scan and select. Method: HTML structure styled with Tailwind CSS for card layout.
-        - Icons for Visual Cues: Goal: Enhance visual appeal and provide quick thematic recognition for each guide. Method: Font Awesome icons within each card.
-        - No data charts (Chart.js/Plotly) are required for this index page as its purpose is navigation and listing, not data visualization.
-        -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -41,6 +36,12 @@
             object-fit: cover; 
             border-bottom: 1px solid #e5e7eb; /* slate-200 */
         }
+        .github-link {
+            transition: color 0.3s ease;
+        }
+        .github-link:hover {
+            color: #4A5568; /* Versus Incident color for hover */
+        }
     </style>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -48,11 +49,14 @@
 <body class="bg-slate-100 text-slate-800 antialiased">
 
     <div class="container mx-auto px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16 min-h-screen flex flex-col">
-        <header class="mb-12 text-center">
+        <header class="mb-12 text-center relative">
+            <a href="https://github.com/VersusControl/versus-incident" target="_blank" rel="noopener noreferrer" class="github-link absolute top-4 right-4 text-2xl text-slate-500 hover:text-slate-700" title="Versus Incident on GitHub">
+                <i class="fab fa-github"></i>
+            </a>
             <div class="inline-flex items-center justify-center p-4 bg-orange-500 rounded-full mb-5 shadow-md">
                 <i class="fas fa-compass-drafting text-4xl text-white"></i>
             </div>
-            <h1 class="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">Interactive Tech Guides & Resources</h1>
+            <h1 class="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">Interactive Tech Guides</h1>
             <p class="mt-4 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto">
                 A curated collection of step-by-step interactive guides, tutorials, and recommended resources. Click to explore.
             </p>
@@ -137,6 +141,25 @@
                         </div>
                         <div class="p-5 bg-slate-50 border-t border-slate-200">
                              <a href="lambda_sentinel_spa.html" class="guide-card-link w-full bg-yellow-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2" title="View Serverless Sentinel Guide">
+                                View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
+
+                     <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-red-100 text-red-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-project-diagram fa-lg"></i>
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">API Gateway Guardian: Error & Latency Alerts</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                Ensure API reliability! Configure instant Slack alerts for AWS API Gateway 4XX/5XX errors and high latency issues.
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                             <a href="api_gateway_guardian_spa.html" class="guide-card-link w-full bg-red-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2" title="View API Gateway Guardian Guide">
                                 View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
                             </a>
                         </div>

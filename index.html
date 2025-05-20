@@ -59,32 +59,6 @@
         </header>
 
         <main class="flex-grow">
-            <section id="featured-resource" class="mb-16">
-                <h2 class="text-3xl font-semibold mb-10 text-center text-slate-700">
-                    Featured Resource
-                </h2>
-                <div class="max-w-2xl mx-auto"> 
-                    <article class="guide-card book-card bg-white rounded-xl shadow-2xl overflow-hidden">
-                        <img src="https://d2sofvawe08yqg.cloudfront.net/on-call-in-action/s_hero2x?1747385227" alt="On-Call In Action Book Cover" class="book-cover">
-                        <div class="p-6 guide-card-content">
-                            <div class="flex items-center mb-4">
-                                <span class="flex items-center justify-center h-12 w-12 bg-indigo-100 text-indigo-600 rounded-full mr-4 shrink-0">
-                                    <i class="fas fa-book-open-reader fa-lg"></i>
-                                </span>
-                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">Book: On-Call In Action</h3>
-                            </div>
-                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
-                                Hands-on SRE strategies, incident management, and alerting techniques for resilient systems and a thriving on-call team.
-                            </p>
-                        </div>
-                        <div class="p-5 bg-slate-50 border-t border-slate-200">
-                            <a href="https://leanpub.com/on-call-in-action" target="_blank" rel="noopener noreferrer" class="guide-card-link w-full bg-indigo-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                                Learn More <i class="fas fa-external-link-alt ml-2"></i>
-                            </a>
-                        </div>
-                    </article>
-                </div>
-            </section>
 
             <section id="guides-collection">
                 <h2 class="text-3xl font-semibold mb-10 text-center text-slate-700">
@@ -118,14 +92,33 @@
                                 <span class="flex items-center justify-center h-12 w-12 bg-teal-100 text-teal-600 rounded-full mr-4 shrink-0">
                                     <i class="fas fa-server fa-lg"></i> 
                                 </span>
-                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">EC2 Watchtower: Real-time State Alerts</h3>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">EC2: Real-time State Alerts</h3>
                             </div>
                             <p class="text-slate-600 leading-relaxed mb-5 text-sm">
                                 Never miss an EC2 instance start, stop, or termination! Get instant Slack alerts for critical instance state changes.
                             </p>
                         </div>
                         <div class="p-5 bg-slate-50 border-t border-slate-200">
-                             <a href="ec2_state_change.html" class="guide-card-link w-full bg-gray-400 text-white font-semibold py-3 px-5 rounded-lg cursor-not-allowed" title="Coming Soon">
+                             <a href="ec2_watchtower_spa.html" class="guide-card-link w-full bg-teal-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2" title="View EC2 Watchtower Guide">
+                                View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
+
+                    <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-blue-100 text-blue-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-archive fa-lg"></i> 
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">S3 Guardian: Critical Bucket Alerts</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                Protect your data! Learn to set up real-time Slack alerts for S3 bucket policy changes, public access modifications, or unusual activity.
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                             <a href="s3_guardian_spa.html" class="guide-card-link w-full bg-blue-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" title="View S3 Guardian Guide">
                                 View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
                             </a>
                         </div>
@@ -152,10 +145,38 @@
                     
                     </div>
             </section>
+
+            <section id="featured-resource" class="mb-16">
+                <h2 class="text-3xl font-semibold mb-10 text-center text-slate-700">
+                    Featured Resource
+                </h2>
+                <div class="max-w-2xl mx-auto"> 
+                    <article class="guide-card book-card bg-white rounded-xl shadow-2xl overflow-hidden">
+                        <img src="https://d2sofvawe08yqg.cloudfront.net/on-call-in-action/s_hero2x?1747385227" alt="On-Call In Action Book Cover" class="book-cover">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-indigo-100 text-indigo-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-book-open-reader fa-lg"></i>
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">Book: On-Call In Action</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                Hands-on SRE strategies, incident management, and alerting techniques for resilient systems and a thriving on-call team.
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                            <a href="https://leanpub.com/on-call-in-action" target="_blank" rel="noopener noreferrer" class="guide-card-link w-full bg-indigo-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                Learn More <i class="fas fa-external-link-alt ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
         </main>
 
         <footer class="text-center mt-16 py-8 border-t border-slate-300">
-            <p class="text-sm text-slate-500">&copy; <span id="currentYear"></span> Versus Control. All rights reserved.</p>
+            <p class="text-sm text-slate-500">&copy; <span id="currentYear"></span> Your Name/Brand Here. All rights reserved.</p>
             <p class="text-xs text-slate-400 mt-1">Guides hosted with <i class="fab fa-github mx-1"></i>GitHub Pages.</p>
         </footer>
     </div>

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Guardian: Real-time Bucket Security Alerts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Visualization & Content Choices:
+        - Overall Workflow Diagram (HTML/CSS): Goal: Inform/Organize. Shows high-level process. Interaction: None, static visual. Justification: Provides context. Method: HTML/CSS boxes and arrows.
+        - Text Blocks: Goal: Inform. JS show/hide for details. Justification: Manages information density.
+        - Code Snippets (JSON Event Patterns, CLI, Go Template): Goal: Inform/Enable. JS copy-to-clipboard. Justification: User utility. Method: <pre><code> styled with Tailwind.
+        - No data charts are needed as this is a how-to guide.
+        -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-color: #2563eb; /* blue-600 for S3 theme */
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .code-block {
+            position: relative;
+            background-color: #1f2937; /* gray-800 */
+            color: #d1d5db; /* gray-300 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4b5563; /* gray-600 */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .copy-button:hover {
+            background-color: #6b7280; /* gray-500 */
+        }
+        .tooltip {
+            position: fixed;
+            background-color: #10b981; /* green-500 */
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .tooltip.show {
+            opacity: 1;
+        }
+        .details-toggle {
+            cursor: pointer;
+            color: #1d4ed8; /* blue-700 */
+            font-weight: 500;
+        }
+        .details-content {
+            display: none;
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            border-left: 2px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-diagram {
+            display: flex;
+            flex-direction: column; /* Always column */
+            align-items: center;    /* Center items in the column */
+            gap: 0.25rem;           /* Gap between items */
+            padding: 1rem;
+            background-color: #f9fafb; /* gray-50 */
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-step {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* gray-300 */
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.375rem;
+            text-align: center;
+            min-width: 180px; 
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            width: fit-content; /* Adjust width to content, up to max-width if set */
+            max-width: 90%; /* Prevent very long text from breaking layout */
+        }
+        .workflow-arrow { /* Style for the vertical arrow */
+            color: #6b7280; /* gray-500 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem; 
+            padding: 0.1rem 0; 
+            line-height: 1;
+        }
+        
+        .icon-s3 { color: #569A31; } 
+        .icon-eventbridge { color: #7B1FA2; } 
+        .icon-sns { color: #D82C22; } 
+        .icon-lambda { color: #FF8C00; } 
+        .icon-versus { color: #4A5568; } 
+        .icon-slack { color: #4A154B; } 
+        .icon-code { color: #2563eb; }
+        .icon-aws { color: #FF9900; }
+
+         .home-link {
+            display: inline-block;
+            margin-bottom: 1.5rem; 
+            font-size: 0.875rem; 
+            color: #4b5563; 
+            transition: color 0.3s ease;
+        }
+        .home-link:hover {
+            color: #2563eb; 
+        }
+
+        /* Removed responsive media queries for workflow diagram layout */
+
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        
+        <div class="text-left">
+            <a href="index.html" class="home-link group">
+                <i class="fas fa-home mr-1 opacity-75 group-hover:opacity-100"></i> Back to All Guides
+            </a>
+        </div>
+
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">S3 Guardian: Real-time Bucket Security Alerts</h1>
+            <p class="mt-2 text-lg text-slate-600">Protect your data! Get instant Slack alerts for critical S3 bucket changes & potential data leaks.</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center border-b border-slate-300">
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600 active" data-tab="intro">Introduction</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="risks">The Risks</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="solution">Our Solution</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="step1">Step 1: EventBridge</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="step2">Step 2: SNS Topic</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="step3">Step 3: Lambda (Optional)</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="step4">Step 4: Versus & Slack</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="step5">Step 5: Testing</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-blue-500 hover:text-blue-600" data-tab="conclusion">Conclusion</button>
+        </nav>
+
+        <main class="bg-white p-6 sm:p-8 rounded-lg shadow-xl">
+            <section id="intro" class="tab-content active">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Introduction to S3 Security Monitoring</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Amazon S3 is a cornerstone of cloud storage, but its flexibility can also introduce security risks if not managed carefully. This guide, "S3 Guardian," will teach you how to set up real-time alerts for critical S3 bucket changes. By monitoring events like modifications to bucket policies, public access block settings, or even specific object-level operations, you can detect potential misconfigurations or unauthorized activities instantly. We'll use AWS EventBridge, SNS, an optional Lambda for message enrichment, and Versus Incident to send these crucial alerts directly to your Slack channel, empowering you to act fast.</p>
+            </section>
+
+            <section id="risks" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">The Risks: Why Monitor S3 Bucket Changes?</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Misconfigured S3 buckets are a leading cause of data breaches in the cloud. Without diligent monitoring, you might face:</p>
+                <ul class="list-disc list-inside mb-4 space-y-2 text-slate-700">
+                    <li><strong>Accidental Data Exposure:</strong> Incorrectly set bucket policies or ACLs can make sensitive data publicly accessible.</li>
+                    <li><strong>Unauthorized Access:</strong> Changes to bucket permissions could grant unintended access to users or services.</li>
+                    <li><strong>Data Loss:</strong> Unmonitored deletions or modifications to critical objects or bucket lifecycle policies.</li>
+                    <li><strong>Compliance Violations:</strong> Failure to detect and respond to policy changes can lead to non-compliance with data protection regulations.</li>
+                    <li><strong>Ransomware Targets:</strong> Publicly writable buckets can be targets for ransomware attacks.</li>
+                </ul>
+                <p class="text-slate-700 leading-relaxed">Real-time alerts for these types of changes are essential for a strong S3 security posture.</p>
+            </section>
+
+            <section id="solution" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Our Solution: Toolkit & Workflow</h2>
+                <p class="mb-6 text-slate-700 leading-relaxed">We'll build an alerting pipeline using these AWS services and tools:</p>
+                <ul class="list-disc list-inside mb-6 space-y-2 text-slate-700">
+                    <li><i class="fab fa-aws mr-2 icon-s3"></i><strong>Amazon S3:</strong> The source of bucket and object-level events.</li>
+                    <li><i class="fas fa-network-wired mr-2 icon-eventbridge"></i><strong>Amazon EventBridge:</strong> To capture specific S3 API call events (e.g., `PutBucketPolicy`). (Alternatively, CloudTrail events can be used for a broader range of S3 actions).</li>
+                    <li><i class="fas fa-paper-plane mr-2 icon-sns"></i><strong>Amazon SNS:</strong> To publish notifications.</li>
+                    <li><i class="fas fa-bolt mr-2 icon-lambda"></i><strong>AWS Lambda (Optional):</strong> For processing event details and formatting clearer alert messages.</li>
+                    <li><i class="fas fa-cogs mr-2 icon-versus"></i><strong>Versus Incident:</strong> To receive SNS notifications and send them to Slack.</li>
+                    <li><i class="fab fa-slack mr-2 icon-slack"></i><strong>Slack:</strong> For receiving real-time alerts.</li>
+                </ul>
+                <h3 class="text-xl font-semibold mb-4 text-slate-800">Overall Workflow Diagram</h3>
+                <div class="workflow-diagram my-6">
+                    <div class="workflow-step"><i class="fab fa-aws mr-2 icon-s3"></i>S3 Bucket Event (e.g., Policy Change)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-network-wired mr-2 icon-eventbridge"></i>EventBridge Rule (or CloudTrail -> CloudWatch Logs -> Filter)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic 1 (Raw/Filtered)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-bolt mr-2 icon-lambda"></i>Lambda (Optional Enrichment)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic 2 (Processed)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-cogs mr-2 icon-versus"></i>Versus Incident</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fab fa-slack mr-2 icon-slack"></i>Slack Alert</div>
+                </div>
+            </section>
+
+            <section id="step1" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Step 1: Capturing S3 Events with EventBridge</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Amazon EventBridge can directly capture many S3 API calls. This is often simpler than setting up CloudTrail logging to S3, then to CloudWatch Logs, and then filtering.</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Go to the Amazon EventBridge console.</li>
+                    <li>Click "Create rule."</li>
+                    <li>Name your rule (e.g., `S3CriticalChangesRule`).</li>
+                    <li>For "Define pattern," select "Event pattern."</li>
+                    <li>Choose "Custom pattern." This gives you fine-grained control.</li>
+                </ol>
+                <div class="details-toggle mt-2 mb-1" onclick="toggleDetails('eventbridge-s3-pattern')"><i class="fas fa-plus-circle mr-1"></i> Show Example Event Pattern for S3 (JSON)</div>
+                <div id="eventbridge-s3-pattern" class="details-content">
+                    <p class="text-sm text-slate-600 mb-2">This pattern triggers on `PutBucketPolicy`, `DeleteBucketPolicy`, and `PutBucketPublicAccessBlock` API calls for any bucket. You can restrict it to specific bucket names using the `resources` field or by filtering on `detail.bucket.name`.</p>
+                    <div class="code-block">
+                        <pre><code>{
+  "source": ["aws.s3"],
+  "detail-type": ["AWS API Call via CloudTrail"],
+  "detail": {
+    "eventSource": ["s3.amazonaws.com"],
+    "eventName": [
+      "PutBucketPolicy",
+      "DeleteBucketPolicy",
+      "PutBucketPublicAccessBlock",
+      "PutBucketAcl",
+      "PutObjectAcl" 
+    ]
+  }
+}</code></pre>
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
+                     <p class="text-sm text-slate-600 mt-2 mb-2"><strong>Note:</strong> For this pattern to work, ensure CloudTrail is enabled and logging S3 management events in your account and region. EventBridge often relies on CloudTrail for these S3 API call details.</p>
+                     <p class="text-sm text-slate-600 mb-2">Alternatively, for S3 object-level events (like `PutObject`, `DeleteObject`), you can enable S3 Event Notifications directly on the bucket to send to SNS/SQS/Lambda, or use different EventBridge patterns if those events are also logged to CloudTrail.</p>
+                </div>
+                <ol class="list-decimal list-inside space-y-3 mt-4 text-slate-700" start="6">
+                    <li>In "Select targets," choose "SNS topic."</li>
+                    <li>Select or create an SNS topic (e.g., `S3CriticalChangesRawTopic`). We'll detail this in Step 2.</li>
+                    <li>Click "Create."</li>
+                </ol>
+            </section>
+
+            <section id="step2" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Step 2: Creating the Primary SNS Topic</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">This SNS topic will receive the raw S3 event data from EventBridge.</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Go to the Amazon SNS console.</li>
+                    <li>Click "Topics," then "Create topic."</li>
+                    <li>Type: "Standard."</li>
+                    <li>Name: e.g., `S3CriticalChangesRawTopic` (matching what you set in EventBridge).</li>
+                    <li>Click "Create topic." Note the Topic ARN.</li>
+                </ol>
+            </section>
+
+            <section id="step3" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Step 3 (Optional): Enriching Alerts with Lambda</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">S3 event JSON can be complex. A Lambda function can parse it, extract key details (like bucket name, API call, principal who made the call), and format a clearer message for Slack.</p>
+                
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">1. Create Lambda Function</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">Follow similar steps as in the EC2 guide: create a Lambda function (e.g., `FormatS3Alert`), choose a runtime (Python/Node.js), and assign basic permissions plus SNS publish rights.</p>
+
+                <div class="details-toggle mt-4 mb-1" onclick="toggleDetails('lambda-s3-code')"><i class="fas fa-plus-circle mr-1 icon-code"></i> Show Example Lambda (Python) Code for S3 Events</div>
+                <div id="lambda-s3-code" class="details-content">
+                    <p class="text-sm text-slate-600 mb-2">This Python code extracts S3 event details.</p>
+                    <div class="code-block">
+                        <pre><code>import json
+import os
+import boto3
+
+sns = boto3.client('sns')
+TARGET_SNS_TOPIC_ARN = os.environ['TARGET_SNS_TOPIC_ARN_S3'] # Use a distinct env var
+
+def lambda_handler(event, context):
+    try:
+        s3_event_detail = event['Records'][0]['Sns']['Message']
+        if isinstance(s3_event_detail, str):
+            s3_event_detail = json.loads(s3_event_detail)
+
+        event_name = s3_event_detail['detail']['eventName']
+        bucket_name = s3_event_detail['detail'].get('requestParameters', {}).get('bucketName', 'N/A')
+        if bucket_name == 'N/A' and 'resources' in s3_event_detail: # Alternative for some events
+             for resource in s3_event_detail.get('resources', []):
+                if resource.get('type') == 'AWS::S3::Bucket':
+                    bucket_name = resource.get('ARN', '').split(':')[-1]
+                    break
+        
+        principal_id = s3_event_detail['detail'].get('userIdentity', {}).get('principalId', 'N/A')
+        user_agent = s3_event_detail['detail'].get('userAgent', 'N/A')
+        event_time = s3_event_detail['time']
+        region = s3_event_detail['region']
+
+        message = f"S3 Bucket Security Alert!\n"\
+                  f"Action: {event_name}\n"\
+                  f"Bucket: {bucket_name}\n"\
+                  f"Principal ID: {principal_id}\n"\
+                  f"User Agent: {user_agent}\n"\
+                  f"Region: {region}\n"\
+                  f"Time: {event_time}"
+                  
+        subject = f"S3 Alert: {event_name} on {bucket_name}"
+
+        sns.publish(
+            TopicArn=TARGET_SNS_TOPIC_ARN,
+            Message=message,
+            Subject=subject
+        )
+        return {'statusCode': 200, 'body': 'S3 Alert processed!'}
+    except Exception as e:
+        print(f"Error processing S3 event: {e}")
+        raise e</code></pre>
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-2"><strong>Configuration:</strong></p>
+                    <ul class="list-disc list-inside ml-4 text-sm text-slate-600">
+                        <li>Environment variable: `TARGET_SNS_TOPIC_ARN_S3` with your secondary SNS topic ARN.</li>
+                        <li>Ensure Lambda role has `sns:Publish` permission.</li>
+                    </ul>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">2. Create Secondary SNS Topic</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">Create a topic like `S3CriticalChangesProcessedTopic` for Lambda to publish to.</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">3. Subscribe Lambda to Primary SNS Topic</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">In Lambda, add a trigger from `S3CriticalChangesRawTopic`.</p>
+            </section>
+
+            <section id="step4" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Step 4: Versus Incident & Slack Integration</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">This follows the same pattern as previous guides. Deploy Versus Incident (if not already done) and subscribe its `/sns` endpoint to your chosen SNS topic (raw or processed).</p>
+                
+                <div class="details-toggle mt-2 mb-1" onclick="toggleDetails('versus-s3-setup')"><i class="fas fa-plus-circle mr-1"></i> Show Versus Incident Setup Reminders</div>
+                <div id="versus-s3-setup" class="details-content">
+                    <p class="text-sm text-slate-600 mb-2"><strong>1. Docker Deployment:</strong></p>
+                    <div class="code-block">
+                        <pre><code>docker run -d -p 3000:3000 \
+  -e SLACK_ENABLE=true \
+  -e SLACK_TOKEN="your_slack_token" \
+  -e SLACK_CHANNEL_ID="your_slack_channel" \
+  -e SNS_ENABLE=true \
+  --name versus-s3-alerts \
+  ghcr.io/versuscontrol/versus-incident</code></pre>
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
+                    <p class="text-sm text-slate-600 mb-2 mt-4"><strong>2. SNS Subscription:</strong></p>
+                    <div class="code-block">
+                        <pre><code>aws sns subscribe \
+  --topic-arn arn:aws:sns:REGION:ACCOUNT_ID:YOUR_S3_SNS_TOPIC \
+  --protocol https \
+  --notification-endpoint https://your-versus-public-url/sns</code></pre>
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">Custom Slack Template for S3 Alerts</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Create a template like `config/slack_s3_alert_template.tmpl` in Versus Incident.</p>
+                <div class="code-block">
+                    <pre><code># If using Lambda-processed message:
+🛡️ S3 Bucket Security Alert! 🛡️
+
+{{.Message}}
+
+# If directly from EventBridge (raw CloudTrail event for S3):
+# Bucket: {{.detail.requestParameters.bucketName}}
+# Action: {{.detail.eventName}}
+# Principal: {{.detail.userIdentity.principalId}}
+# Time: {{.time}}
+
+{{ if .AckURL }}[Acknowledge this alert]({{.AckURL}}){{ end }}</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="text-sm text-slate-600 mt-2">Ensure your Versus Incident `config.yaml` points to this template for Slack.</p>
+            </section>
+
+            <section id="step5" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Step 5: Testing Your S3 Guardian</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Trigger an event you're monitoring:</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Modify a test S3 bucket's policy (e.g., via AWS Console or CLI).</li>
+                    <li>Change its Public Access Block settings.</li>
+                    <li>If monitoring object ACLs, change an object's ACL.</li>
+                    <li>Observe your Slack channel for the alert. Check EventBridge, SNS, and Lambda logs if troubleshooting.</li>
+                </ol>
+                 <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-700">
+                    <i class="fas fa-exclamation-triangle mr-2"></i><strong>Caution:</strong> Be very careful when testing S3 permissions, especially with production buckets. Always use test buckets and revert changes immediately after testing.
+                </div>
+            </section>
+
+            <section id="conclusion" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-600">Conclusion: Proactive S3 Security</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">You've now configured an S3 Guardian! This setup provides crucial real-time alerts for changes that could impact your S3 data security. By staying informed, you can quickly address misconfigurations, investigate suspicious activities, and maintain a stronger security posture for your S3 resources. Consider expanding this by alerting on specific S3 object access patterns via CloudTrail and CloudWatch Logs Metric Filters for even deeper visibility.</p>
+            </section>
+        </main>
+    </div>
+
+    <div id="copy-tooltip" class="tooltip">Copied to clipboard!</div>
+
+    <script>
+        const tabs = document.querySelectorAll('.tab-button');
+        const contents = document.querySelectorAll('.tab-content');
+        const tooltip = document.getElementById('copy-tooltip');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(item => item.classList.remove('active'));
+                tab.classList.add('active');
+
+                const target = tab.getAttribute('data-tab');
+                contents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === target) {
+                        content.classList.add('active');
+                    }
+                });
+                document.querySelector('main').scrollTop = 0; 
+            });
+        });
+
+        function copyToClipboard(button) {
+            const codeBlock = button.previousElementSibling;
+            const textToCopy = codeBlock.textContent;
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showTooltip(button);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showTooltip(button) {
+            const rect = button.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + window.scrollX}px`;
+            tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            tooltip.classList.add('show');
+            setTimeout(() => {
+                tooltip.classList.remove('show');
+            }, 1500);
+        }
+        
+        function toggleDetails(elementId) {
+            const content = document.getElementById(elementId);
+            const iconElement = content.previousElementSibling.querySelector('i');
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                iconElement.classList.remove('fa-minus-circle');
+                iconElement.classList.add('fa-plus-circle');
+            } else {
+                content.style.display = 'block';
+                iconElement.classList.remove('fa-plus-circle');
+                iconElement.classList.add('fa-minus-circle');
+            }
+        }
+
+        if (contents.length > 0) {
+            contents[0].classList.add('active');
+        }
+        if (tabs.length > 0) {
+            tabs[0].classList.add('active');
+        }
+    </script>
+</body>
+</html>

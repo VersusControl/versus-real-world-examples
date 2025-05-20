@@ -86,39 +86,35 @@
         /* Workflow Diagram Styles */
         .workflow-diagram {
             display: flex;
-            flex-direction: column; 
-            align-items: center; 
-            gap: 0.25rem; 
+            flex-direction: column; /* Always column */
+            align-items: center;    /* Center items in the column */
+            gap: 0.25rem;           /* Gap between items */
             padding: 1rem;
-            background-color: #f9fafb; 
+            background-color: #f9fafb; /* gray-50 */
             border-radius: 0.5rem;
-            border: 1px solid #e5e7eb; 
+            border: 1px solid #e5e7eb; /* gray-200 */
         }
         .workflow-step {
             background-color: #ffffff;
-            border: 1px solid #d1d5db; 
+            border: 1px solid #d1d5db; /* gray-300 */
             padding: 0.75rem 1.25rem;
             border-radius: 0.375rem;
             text-align: center;
-            min-width: 200px; 
+            min-width: 180px; /* Adjusted min-width slightly */
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            width: fit-content; /* Adjust width to content */
+            max-width: 90%; /* Prevent very long text from breaking layout */
         }
-        .workflow-arrow { 
-            color: #6b7280; 
+        .workflow-arrow { /* Style for the vertical arrow */
+            color: #6b7280; /* gray-500 */
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        .workflow-arrow.vertical-mobile {
-            font-size: 1.5rem;
+            font-size: 1.5rem; 
             padding: 0.1rem 0; 
-            line-height: 1; 
+            line-height: 1;
         }
-        .workflow-arrow.horizontal-desktop {
-            font-size: 1.8rem;
-            padding: 0 0.5rem; 
-        }
-
+        
         .icon-aws { color: #FF9900; }
         .icon-postgres { color: #336791; }
         .icon-cloudwatch { color: #7D7C7C; }
@@ -144,34 +140,8 @@
             color: #fb923c; 
         }
 
-        @media (min-width: 768px) { 
-            .workflow-diagram {
-                flex-direction: row; 
-                justify-content: flex-start; /* Changed from center to flex-start */
-                align-items: flex-start; 
-                flex-wrap: wrap; 
-                gap: 0.75rem; 
-            }
-            .workflow-step {
-                 min-width: 180px; /* Slightly reduced min-width for desktop */
-            }
-            .workflow-arrow.vertical-mobile {
-                display: none; 
-            }
-            .workflow-arrow.horizontal-desktop {
-                display: flex; 
-                flex: 0 0 auto; /* Ensure arrows don't grow/shrink, size by content */
-            }
-        }
-        
-        @media (max-width: 767px) { 
-            .workflow-arrow.vertical-mobile {
-                display: flex; 
-            }
-            .workflow-arrow.horizontal-desktop {
-                display: none; 
-            }
-        }
+        /* Removed responsive media queries for workflow diagram layout */
+
     </style>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -230,23 +200,17 @@
                 <p class="mb-4 text-slate-700 leading-relaxed">This diagram illustrates the flow of information from database activity to a Slack alert:</p>
                 <div class="workflow-diagram my-6">
                     <div class="workflow-step"><i class="fas fa-database mr-2 icon-postgres"></i>RDS PostgreSQL<br>(pgaudit logs)</div>
-                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
-                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
                     <div class="workflow-step"><i class="fab fa-aws mr-2 icon-aws"></i>CloudWatch Logs</div>
-                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
-                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
                     <div class="workflow-step"><i class="fas fa-filter mr-2 icon-filter"></i>CloudWatch Metric Filter</div>
-                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
-                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
                     <div class="workflow-step"><i class="fas fa-bell mr-2 icon-alarm"></i>CloudWatch Alarm</div>
-                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
-                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
                     <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic</div>
-                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
-                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
                     <div class="workflow-step"><i class="fas fa-cogs mr-2 icon-versus"></i>Versus Incident</div>
-                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
-                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
                     <div class="workflow-step"><i class="fab fa-slack mr-2 icon-slack"></i>Slack Alert</div>
                 </div>
                 <p class="text-sm text-slate-600 mt-2 text-center">This visual representation helps understand how each component contributes to the alerting pipeline.</p>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Versus Real World Examples</title>
+    <title>My Interactive Tech Guides</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Visualization & Content Choices:
         - Post Listing (Cards): Goal: Inform & Navigate. Each card will display a summary of a guide and a link. Interaction: Click to navigate to the guide's HTML page. Justification: This is a standard and highly effective method for presenting a collection of articles or guides, allowing users to quickly scan and select. Method: HTML structure styled with Tailwind CSS for card layout.
@@ -31,6 +31,11 @@
             text-align: center;
             transition: background-color 0.3s ease;
         }
+        .book-cover {
+            width: 100%;
+            height: 200px; /* Adjust height as needed */
+            object-fit: cover; /* Ensures image covers the area, might crop */
+        }
     </style>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -42,16 +47,16 @@
             <div class="inline-flex items-center justify-center p-4 bg-orange-500 rounded-full mb-5 shadow-md">
                 <i class="fas fa-compass-drafting text-4xl text-white"></i>
             </div>
-            <h1 class="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">Interactive Tech Guides</h1>
+            <h1 class="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">Interactive Tech Guides & Resources</h1>
             <p class="mt-4 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto">
-                A curated collection of step-by-step interactive guides and tutorials. Click on a guide to explore.
+                A curated collection of step-by-step interactive guides, tutorials, and recommended resources. Click to explore.
             </p>
         </header>
 
         <main class="flex-grow">
             <section id="guides-collection">
                 <h2 class="text-2xl sm:text-3xl font-semibold mb-10 text-center text-slate-700">
-                    Explore Available Guides
+                    Explore Available Content
                 </h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -59,8 +64,8 @@
                     <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
                         <div class="p-6 guide-card-content">
                             <div class="flex items-center mb-4">
-                                <span class="flex items-center justify-center h-12 w-12 bg-sky-100 text-sky-600 rounded-full mr-4 shrink-0">
-                                    <i class="fas fa-shield-halved fa-lg"></i>
+                                <span class="flex items-center justify-center h-12 w-12 bg-orange-100 text-orange-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-database fa-lg"></i>
                                 </span>
                                 <h3 class="text-xl font-semibold text-slate-800 leading-tight">AWS Database Security & Alerting</h3>
                             </div>
@@ -71,6 +76,26 @@
                         <div class="p-5 bg-slate-50 border-t border-slate-200">
                             <a href="db_security_spa.html" class="guide-card-link w-full bg-orange-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
                                 View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
+
+                    <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
+                        <img src="https://d2sofvawe08yqg.cloudfront.net/on-call-in-action/s_hero2x?1747385227" alt="On-Call In Action Book Cover" class="book-cover">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-indigo-100 text-indigo-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-book-reader fa-lg"></i>
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">Book: On-Call In Action</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                Hands-on SRE strategies, incident management, and alerting techniques for resilient systems and a thriving on-call team.
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                            <a href="https://leanpub.com/on-call-in-action" target="_blank" rel="noopener noreferrer" class="guide-card-link w-full bg-indigo-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                View Book <i class="fas fa-external-link-alt ml-2"></i>
                             </a>
                         </div>
                     </article>
@@ -93,13 +118,32 @@
                             </a>
                         </div>
                     </article>
+
+                    <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-purple-100 text-purple-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-network-wired fa-lg"></i>
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">Another Guide Placeholder</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                Explore concepts related to [Placeholder Topic]. This guide will offer interactive elements to enhance understanding.
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                            <a href="#" class="guide-card-link w-full bg-gray-400 text-white font-semibold py-3 px-5 rounded-lg cursor-not-allowed" title="Coming Soon">
+                                View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
                     
                     </div>
             </section>
         </main>
 
         <footer class="text-center mt-16 py-8 border-t border-slate-300">
-            <p class="text-sm text-slate-500">&copy; <span id="currentYear"></span> Versus Control. All rights reserved.</p>
+            <p class="text-sm text-slate-500">&copy; <span id="currentYear"></span> Your Name/Brand Here. All rights reserved.</p>
             <p class="text-xs text-slate-400 mt-1">Guides hosted with <i class="fab fa-github mx-1"></i>GitHub Pages.</p>
         </footer>
     </div>

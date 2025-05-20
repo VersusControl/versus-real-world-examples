@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Versus Real World Examples</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Visualization & Content Choices:
+        - Post Listing (Cards): Goal: Inform & Navigate. Each card will display a summary of a guide and a link. Interaction: Click to navigate to the guide's HTML page. Justification: This is a standard and highly effective method for presenting a collection of articles or guides, allowing users to quickly scan and select. Method: HTML structure styled with Tailwind CSS for card layout.
+        - Icons for Visual Cues: Goal: Enhance visual appeal and provide quick thematic recognition for each guide. Method: Font Awesome icons within each card.
+        - No data charts (Chart.js/Plotly) are required for this index page as its purpose is navigation and listing, not data visualization.
+        -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .guide-card {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+        .guide-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.12), 0 8px 8px rgba(0,0,0,0.1);
+        }
+        .guide-card-content {
+            flex-grow: 1; /* Ensures content area takes available space */
+        }
+        .guide-card-link {
+            display: block;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <div class="container mx-auto px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16 min-h-screen flex flex-col">
+        <header class="mb-12 text-center">
+            <div class="inline-flex items-center justify-center p-4 bg-orange-500 rounded-full mb-5 shadow-md">
+                <i class="fas fa-compass-drafting text-4xl text-white"></i>
+            </div>
+            <h1 class="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">Interactive Tech Guides</h1>
+            <p class="mt-4 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto">
+                A curated collection of step-by-step interactive guides and tutorials. Click on a guide to explore.
+            </p>
+        </header>
+
+        <main class="flex-grow">
+            <section id="guides-collection">
+                <h2 class="text-2xl sm:text-3xl font-semibold mb-10 text-center text-slate-700">
+                    Explore Available Guides
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    
+                    <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-sky-100 text-sky-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-shield-halved fa-lg"></i>
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">AWS Database Security & Alerting</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                An interactive walkthrough on setting up monitoring for unexpected AWS RDS PostgreSQL access and configuring instant Slack alerts.
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                            <a href="db_security_spa.html" class="guide-card-link w-full bg-orange-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+                                View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
+
+                    <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-green-100 text-green-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-microchip fa-lg"></i>
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">Future Guide: Amazing Tech Topic</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                This is a placeholder for another insightful interactive guide. Stay tuned for more content on cutting-edge technologies!
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                             <a href="#" class="guide-card-link w-full bg-gray-400 text-white font-semibold py-3 px-5 rounded-lg cursor-not-allowed" title="Coming Soon">
+                                View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
+                    
+                    </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-16 py-8 border-t border-slate-300">
+            <p class="text-sm text-slate-500">&copy; <span id="currentYear"></span> Versus Control. All rights reserved.</p>
+            <p class="text-xs text-slate-400 mt-1">Guides hosted with <i class="fab fa-github mx-1"></i>GitHub Pages.</p>
+        </footer>
+    </div>
+
+    <script>
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Guide: AWS DB Security & Alerting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Visualization & Content Choices:
+        - Overall Workflow Diagram (HTML/CSS): Goal: Inform/Organize. Shows high-level process. Interaction: None, static visual. Justification: Provides context. Method: HTML/CSS boxes and arrows.
+        - Text Blocks: Goal: Inform. JS show/hide for details. Justification: Manages information density.
+        - Code Snippets: Goal: Inform/Enable. JS copy-to-clipboard. Justification: User utility. Method: <pre><code> styled with Tailwind.
+        - Parameter Lists (e.g., for pgaudit): Goal: Inform. Method: Styled HTML lists.
+        - No data charts (Chart.js/Plotly) are needed as the source is a how-to guide, not a data report.
+        -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-color: #fb923c; /* orange-500 */
+            color: #fb923c;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .code-block {
+            position: relative;
+            background-color: #1f2937; /* gray-800 */
+            color: #d1d5db; /* gray-300 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4b5563; /* gray-600 */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .copy-button:hover {
+            background-color: #6b7280; /* gray-500 */
+        }
+        .tooltip {
+            position: fixed;
+            background-color: #10b981; /* green-500 */
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .tooltip.show {
+            opacity: 1;
+        }
+        .details-toggle {
+            cursor: pointer;
+            color: #0284c7; /* sky-600 */
+            font-weight: 500;
+        }
+        .details-content {
+            display: none;
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            border-left: 2px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem; /* Reduced gap for arrows */
+            padding: 1rem;
+            background-color: #f9fafb; /* gray-50 */
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-step {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* gray-300 */
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.375rem;
+            text-align: center;
+            min-width: 200px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+        .workflow-arrow {
+            font-size: 1.5rem; /* Larger arrow */
+            color: #6b7280; /* gray-500 */
+            line-height: 0.5; /* Adjust line height to bring arrow closer */
+        }
+        .icon-aws { color: #FF9900; } /* AWS Orange */
+        .icon-postgres { color: #336791; } /* PostgreSQL Blue */
+        .icon-cloudwatch { color: #7D7C7C; } /* CloudWatch Gray/Blueish */
+        .icon-sns { color: #D82C22; } /* SNS Red */
+        .icon-versus { color: #4A5568; } /* Versus Incident - Neutral Dark Gray */
+        .icon-slack { color: #4A154B; } /* Slack Purple */
+        .icon-tool { color: #0ea5e9; } /* sky-500 */
+        .icon-log { color: #22c55e; } /* green-500 */
+        .icon-filter { color: #f59e0b; } /* amber-500 */
+        .icon-alarm { color: #ef4444; } /* red-500 */
+        .icon-message { color: #8b5cf6; } /* violet-500 */
+        .icon-docker { color: #0db7ed; } /* Docker Blue */
+        .icon-test { color: #14b8a6; } /* teal-500 */
+
+        /* Responsive adjustments for workflow diagram */
+        @media (min-width: 768px) {
+            .workflow-diagram {
+                flex-direction: row;
+                justify-content: center;
+                align-items: flex-start; /* Align items to the top for varying heights */
+                flex-wrap: wrap; /* Allow wrapping on smaller wide screens */
+                gap: 0.25rem; /* Reduced gap for arrows */
+            }
+            .workflow-arrow {
+                transform: rotate(-90deg);
+                margin: auto 0.25rem; /* Adjust margin for horizontal layout */
+                font-size: 2rem;
+            }
+             .workflow-arrow.vertical-mobile {
+                display: block; /* Show vertical arrows on mobile */
+            }
+            .workflow-arrow.horizontal-desktop {
+                display: inline-block; /* Show horizontal arrows on desktop */
+            }
+        }
+         @media (max-width: 767px) {
+            .workflow-arrow.vertical-mobile {
+                display: block;
+            }
+            .workflow-arrow.horizontal-desktop {
+                display: none;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Interactive Guide: AWS Database Security & Alerting</h1>
+            <p class="mt-2 text-lg text-slate-600">Secure your data by detecting unexpected AWS Database access and get instant Slack alerts.</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center border-b border-slate-300">
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500 active" data-tab="intro">Introduction</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="why">Why Monitor?</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="toolkit">Toolkit</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="step1">Step 1: RDS Auditing</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="step2">Step 2: CloudWatch</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="step3">Step 3: SNS Routing</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="step4">Step 4: Versus & Slack</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="test">Test Setup</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-orange-400 hover:text-orange-500" data-tab="conclusion">Conclusion</button>
+        </nav>
+
+        <main class="bg-white p-6 sm:p-8 rounded-lg shadow-xl">
+            <section id="intro" class="tab-content active">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Introduction</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">This interactive guide walks you through setting up a robust monitoring system on AWS for your PostgreSQL databases. You'll learn how to identify suspicious logins and receive immediate alerts in Slack. Unauthorized access to sensitive databases is a nightmare scenario, and early detection is crucial to prevent data breaches. We'll use a combination of AWS services and the open-source tool Versus Incident to achieve this.</p>
+            </section>
+
+            <section id="why" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Why Monitoring Sensitive Database Access is Critical</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Databases, especially those holding financial, personal, or customer information (like a payroll system), are prime targets. Our goal is to know <strong class="text-slate-900">immediately</strong> if someone logs in who isn't supposed to – specifically, any user account not tied to our application's regular operations. This could be an external attacker, a compromised internal account, or even accidental misconfiguration. Timely alerts allow for rapid investigation and response, minimizing potential damage.</p>
+            </section>
+
+            <section id="toolkit" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Our Monitoring Toolkit & Workflow</h2>
+                <p class="mb-6 text-slate-700 leading-relaxed">Here’s a quick overview of the tools we'll use in this setup and how they connect:</p>
+                <ul class="list-disc list-inside mb-6 space-y-2 text-slate-700">
+                    <li><i class="fas fa-database mr-2 icon-postgres"></i><strong>AWS RDS for PostgreSQL:</strong> Our database service.</li>
+                    <li><i class="fas fa-user-secret mr-2 icon-tool"></i><strong>pgaudit extension:</strong> For detailed audit logging within PostgreSQL.</li>
+                    <li><i class="fab fa-aws mr-2 icon-aws"></i><strong>AWS CloudWatch Logs:</strong> To collect and store our audit logs.</li>
+                    <li><i class="fas fa-filter mr-2 icon-filter"></i><i class="fas fa-bell mr-2 icon-alarm"></i><strong>AWS CloudWatch Metric Filters & Alarms:</strong> To analyze logs and trigger alerts.</li>
+                    <li><i class="fas fa-paper-plane mr-2 icon-sns"></i><strong>AWS SNS (Simple Notification Service):</strong> To fan out alarm notifications.</li>
+                    <li><i class="fas fa-cogs mr-2 icon-versus"></i><strong>Versus Incident:</strong> An open-source tool to receive SNS notifications and forward them to Slack.</li>
+                    <li><i class="fab fa-slack mr-2 icon-slack"></i><strong>Slack:</strong> Our destination for real-time alerts.</li>
+                </ul>
+                <h3 class="text-xl font-semibold mb-4 text-slate-800">Overall Workflow Diagram</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">This diagram illustrates the flow of information from database activity to a Slack alert:</p>
+                <div class="workflow-diagram my-6 overflow-x-auto">
+                    <div class="workflow-step"><i class="fas fa-database mr-2 icon-postgres"></i>RDS PostgreSQL<br>(pgaudit logs)</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fab fa-aws mr-2 icon-aws"></i>CloudWatch Logs</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-filter mr-2 icon-filter"></i>CloudWatch Metric Filter</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-bell mr-2 icon-alarm"></i>CloudWatch Alarm</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-cogs mr-2 icon-versus"></i>Versus Incident</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fab fa-slack mr-2 icon-slack"></i>Slack Alert</div>
+                </div>
+                <p class="text-sm text-slate-600 mt-2 text-center">This visual representation helps understand how each component contributes to the alerting pipeline.</p>
+            </section>
+
+            <section id="step1" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Step 1: Turning on Detailed Audit Trails in RDS for PostgreSQL</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">First, we need our PostgreSQL database to tell us exactly who is doing what. The `pgaudit` extension is perfect for this. You'll need to modify your RDS instance's **DB Parameter Group**.</p>
+                <div class="details-toggle mb-2" onclick="toggleDetails('pgaudit-params')"><i class="fas fa-plus-circle mr-1"></i> Show Key Parameters to Configure</div>
+                <div id="pgaudit-params" class="details-content mb-4 p-4 bg-slate-50 rounded-md border border-slate-200">
+                    <ul class="list-disc list-inside space-y-2 text-slate-700">
+                        <li><code>shared_preload_libraries</code>: Add <code>pgaudit</code> to this list. If other libraries are listed, append <code>pgaudit</code> (e.g., <code>rdsutils,pgaudit</code>).</li>
+                        <li><code>log_connections</code> & <code>log_disconnections</code>: Set both to <code>on</code>.</li>
+                        <li><code>pgaudit.log</code>: A good starting point is <code>SESSION, READ, WRITE, ROLE</code>. This logs connections/disconnections, select statements, data modification statements, and role changes.</li>
+                    </ul>
+                </div>
+                <p class="mb-4 text-slate-700 leading-relaxed">After saving these changes to your parameter group, associate it with your RDS instance (this will require a reboot). Then, in your RDS instance settings, enable <strong>Log exports</strong> for the "PostgreSQL log." This sends all these rich audit details to a CloudWatch Logs group, typically named something like <code>/aws/rds/instance/your-db-instance-name/postgresql</code>.</p>
+            </section>
+
+            <section id="step2" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Step 2: Using CloudWatch to Spot Suspicious Logins</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">With logs flowing into CloudWatch, we can now hunt for suspicious activity. Our main interest is logins from users *other than* our application's dedicated service account (e.g., <code>app_payroll_user</code>) and the default <code>rdsadmin</code> user.</p>
+                
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">Create a Metric Filter</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">Navigate to your PostgreSQL log group in CloudWatch. We'll create a "Metric Filter" to count specific log events. The filter pattern is crucial and depends on your log format. You're looking for "connection authorized" messages that *don't* belong to your known good users.</p>
+                <p class="mb-2 text-slate-700"><strong>Example Conceptual Filter Pattern:</strong></p>
+                <div class="code-block mb-4">
+                    <pre><code>{ ($.message like "%LOG:  connection authorized: user=%") && ($.message not like "%user=app_payroll_user%") && ($.message not like "%user=rdsadmin%") }</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="mb-4 text-slate-700 text-sm italic">Note: You'll need to test and refine this pattern against your actual log data.</p>
+                <p class="mb-4 text-slate-700 leading-relaxed">Give your filter a name (e.g., <code>UnexpectedPayrollDBAccessPostgreSQL</code>), assign it to a custom namespace (e.g., <code>RDSPostgreSQLAudit</code>), and name the metric (e.g., <code>NonAppUserLoginsPostgreSQL</code>). Set the metric value to <code>1</code> to count each occurrence.</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">Set Up a CloudWatch Alarm</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">Once the metric is defined, create a CloudWatch Alarm:</p>
+                <ul class="list-disc list-inside space-y-2 text-slate-700 mb-4">
+                    <li>Select your new metric (<code>NonAppUserLoginsPostgreSQL</code>).</li>
+                    <li>Set the statistic to <code>Sum</code> and the period to something like <code>1 minute</code> or <code>5 minutes</code>.</li>
+                    <li>The condition will be: whenever <code>NonAppUserLoginsPostgreSQL</code> is <code>Greater > 0</code>.</li>
+                    <li>For the action, configure it to send a notification to an SNS topic. You can create a new one (e.g., <code>PayrollDB-PostgreSQL-UnexpectedAccess-Alerts</code>). Make a note of this SNS Topic ARN.</li>
+                </ul>
+            </section>
+
+            <section id="step3" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Step 3: Routing Alerts Through SNS</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Amazon SNS (Simple Notification Service) acts as a message hub. Our CloudWatch Alarm will publish a message to this SNS topic whenever it's triggered. This decouples the alarm from the final notification mechanism, allowing flexibility. Ensure your SNS topic is created and you have its ARN for the next steps.</p>
+                <div class="mt-4 p-4 bg-sky-50 border border-sky-200 rounded-md text-sky-700">
+                    <i class="fas fa-info-circle mr-2"></i>The SNS topic (e.g., <code>PayrollDB-PostgreSQL-UnexpectedAccess-Alerts</code>) is the crucial link between CloudWatch Alarms and Versus Incident.
+                </div>
+            </section>
+
+            <section id="step4" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Step 4: Delivering Clear Alerts to Slack via Versus Incident</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Now, we get these critical alerts into Slack where your team can see and act on them. We'll use Versus Incident, an open-source tool that can listen to SNS and send formatted messages to various channels, including Slack.</p>
+
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">Deploy Versus Incident</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">A quick way to get Versus Incident running is with Docker. You'll need your Slack Bot Token and Channel ID.</p>
+                <div class="code-block mb-4">
+                    <pre><code>docker run -d \
+  -p 3000:3000 \
+  -e SLACK_ENABLE=true \
+  -e SLACK_TOKEN="your_slack_bot_token" \
+  -e SLACK_CHANNEL_ID="your_slack_channel_id" \
+  -e SNS_ENABLE=true \
+  --name versus-slack-pg-payroll-alerts \
+  ghcr.io/versuscontrol/versus-incident</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="mb-4 text-slate-700 text-sm italic">For AWS SNS to reach Versus Incident, it needs a public endpoint. If you're running Docker locally for testing, a tool like <code>ngrok</code> can expose your local port 3000 to the internet.</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">Subscribe Versus Incident to SNS</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Using the AWS CLI, subscribe your Versus Incident public <code>/sns</code> endpoint to the SNS topic you created earlier:</p>
+                <div class="code-block mb-4">
+                    <pre><code>aws sns subscribe \
+  --topic-arn arn:aws:sns:us-east-1:123456789012:PayrollDB-PostgreSQL-UnexpectedAccess-Alerts \
+  --protocol https \
+  --notification-endpoint https://your-versus-public-url/sns</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="mb-4 text-slate-700 leading-relaxed">AWS will send a confirmation, which Versus Incident should handle automatically.</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">Customize Your Slack Message (Recommended)</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">The default SNS message can be a bit raw. Versus Incident uses Go templates for message formatting. Create a <code>config</code> directory with a <code>config.yaml</code> file and your template file (e.g., <code>slack_pg_payroll_alert_template.tmpl</code>).</p>
+                <p class="mb-2 text-slate-700"><strong>Example <code>config/config.yaml</code>:</strong></p>
+                <div class="code-block mb-4">
+                    <pre><code># config/config.yaml
+alert:
+  slack:
+    enable: true
+    token: ${SLACK_TOKEN} # From environment variable
+    channel_id: ${SLACK_CHANNEL_ID} # From environment variable
+    template_path: "/app/config/slack_pg_payroll_alert_template.tmpl"
+queue:
+  sns:
+    enable: true
+    https_endpoint_subscription_path: /sns</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="mb-2 text-slate-700"><strong>Example <code>config/slack_pg_payroll_alert_template.tmpl</code>:</strong></p>
+                <div class="code-block mb-4">
+                    <pre><code># config/slack_pg_payroll_alert_template.tmpl
+🚨 **Unexpected PostgreSQL Payroll DB Access!** 🚨
+
+**Alarm Name:** {{ .AlarmName }}
+**Status:** {{ .NewStateValue }}
+**Reason:** {{ .NewStateReason }}
+**Time:** {{ .StateChangeTime }}
+
+**Action Required:** Investigate PostgreSQL logs in CloudWatch for the RDS instance around the alert time. Look for 'connection authorized' events for users NOT 'app_payroll_user' or 'rdsadmin'.
+
+{{ if .AckURL }}[Acknowledge this alert]({{.AckURL}}){{ end }}</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="mb-4 text-slate-700 text-sm italic">When deploying Docker, remember to mount your <code>config</code> directory: <code>-v $(pwd)/config:/app/config</code>.</p>
+            </section>
+
+            <section id="test" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Test Your Setup</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">With everything configured, it's time to test. Log in to your PostgreSQL database using a user account that *isn't* your application user or <code>rdsadmin</code>. Within a few minutes (depending on your alarm period), you should see a formatted alert pop up in your Slack channel!</p>
+                <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-md text-green-700">
+                    <i class="fas fa-check-circle mr-2"></i>A successful test confirms your entire pipeline is working, from database log to Slack notification.
+                </div>
+            </section>
+
+            <section id="conclusion" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-orange-600">Why This Matters: Proactive Security</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Setting up this monitoring pipeline gives you proactive security. Instead of finding out about unauthorized access days or weeks later (or not at all), you get real-time notifications. This allows for rapid investigation and response, significantly reducing the potential impact of a security incident. It’s a vital step in protecting your sensitive data and maintaining trust.</p>
+            </section>
+        </main>
+    </div>
+
+    <div id="copy-tooltip" class="tooltip">Copied to clipboard!</div>
+
+    <script>
+        const tabs = document.querySelectorAll('.tab-button');
+        const contents = document.querySelectorAll('.tab-content');
+        const tooltip = document.getElementById('copy-tooltip');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(item => item.classList.remove('active'));
+                tab.classList.add('active');
+
+                const target = tab.getAttribute('data-tab');
+                contents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === target) {
+                        content.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        function copyToClipboard(button) {
+            const codeBlock = button.previousElementSibling;
+            const textToCopy = codeBlock.textContent;
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showTooltip(button);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showTooltip(button) {
+            const rect = button.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + window.scrollX}px`;
+            tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            tooltip.classList.add('show');
+            setTimeout(() => {
+                tooltip.classList.remove('show');
+            }, 1500);
+        }
+        
+        function toggleDetails(elementId) {
+            const content = document.getElementById(elementId);
+            const icon = content.previousElementSibling.querySelector('i');
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                icon.classList.remove('fa-minus-circle');
+                icon.classList.add('fa-plus-circle');
+            } else {
+                content.style.display = 'block';
+                icon.classList.remove('fa-plus-circle');
+                icon.classList.add('fa-minus-circle');
+            }
+        }
+
+        // Initialize: Show the first tab content
+        if (contents.length > 0) {
+            contents[0].classList.add('active');
+        }
+        if (tabs.length > 0) {
+            tabs[0].classList.add('active');
+        }
+    </script>
+</body>
+</html>

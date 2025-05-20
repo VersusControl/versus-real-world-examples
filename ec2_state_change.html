@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EC2 Watchtower: Real-time Instance State Change Alerts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Visualization & Content Choices:
+        - Overall Workflow Diagram (HTML/CSS): Goal: Inform/Organize. Shows high-level process. Interaction: None, static visual. Justification: Provides context. Method: HTML/CSS boxes and arrows.
+        - Text Blocks: Goal: Inform. JS show/hide for details. Justification: Manages information density.
+        - Code Snippets (JSON, Python/Node.js, CLI, Go Template): Goal: Inform/Enable. JS copy-to-clipboard. Justification: User utility. Method: <pre><code> styled with Tailwind.
+        - No data charts are needed as this is a how-to guide.
+        -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-color: #8b5cf6; /* purple-500 for EventBridge theme */
+            color: #8b5cf6;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .code-block {
+            position: relative;
+            background-color: #1f2937; /* gray-800 */
+            color: #d1d5db; /* gray-300 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4b5563; /* gray-600 */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .copy-button:hover {
+            background-color: #6b7280; /* gray-500 */
+        }
+        .tooltip {
+            position: fixed;
+            background-color: #10b981; /* green-500 */
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .tooltip.show {
+            opacity: 1;
+        }
+        .details-toggle {
+            cursor: pointer;
+            color: #7c3aed; /* purple-600 */
+            font-weight: 500;
+        }
+        .details-content {
+            display: none;
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            border-left: 2px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 1rem;
+            background-color: #f9fafb; /* gray-50 */
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb; /* gray-200 */
+        }
+        .workflow-step {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; /* gray-300 */
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.375rem;
+            text-align: center;
+            min-width: 180px; /* Slightly reduced min-width */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+        .workflow-arrow {
+            color: #6b7280; /* gray-500 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .workflow-arrow.vertical-mobile { font-size: 1.5rem; padding: 0.1rem 0; line-height: 1; }
+        .workflow-arrow.horizontal-desktop { font-size: 1.8rem; padding: 0 0.5rem; }
+
+        .icon-ec2 { color: #FF9900; } /* AWS Orange for EC2 */
+        .icon-eventbridge { color: #7B1FA2; } /* EventBridge Purple */
+        .icon-sns { color: #D82C22; } /* SNS Red */
+        .icon-lambda { color: #FF8C00; } /* Lambda Orange/Yellow */
+        .icon-versus { color: #4A5568; } /* Versus Incident - Neutral Dark Gray */
+        .icon-slack { color: #4A154B; } /* Slack Purple */
+        .icon-code { color: #2563eb; } /* blue-600 */
+
+        .home-link {
+            display: inline-block;
+            margin-bottom: 1.5rem; /* Increased margin-bottom */
+            font-size: 0.875rem; /* text-sm */
+            color: #4b5563; /* gray-600 */
+            transition: color 0.3s ease;
+        }
+        .home-link:hover {
+            color: #8b5cf6; /* purple-500 - same as active tab color */
+        }
+
+
+        @media (min-width: 768px) {
+            .workflow-diagram { flex-direction: row; justify-content: center; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem; }
+            .workflow-arrow.vertical-mobile { display: none; }
+            .workflow-arrow.horizontal-desktop { display: flex; }
+        }
+        @media (max-width: 767px) {
+            .workflow-arrow.vertical-mobile { display: flex; }
+            .workflow-arrow.horizontal-desktop { display: none; }
+        }
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        
+        <div class="text-left"> <a href="index.html" class="home-link group">
+                <i class="fas fa-home mr-1 opacity-75 group-hover:opacity-100"></i> Back to All Guides
+            </a>
+        </div>
+
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">EC2 Watchtower: Real-time Instance State Alerts</h1>
+            <p class="mt-2 text-lg text-slate-600">Never miss an EC2 instance start, stop, or termination! Get instant Slack alerts.</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center border-b border-slate-300">
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500 active" data-tab="intro">Introduction</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="problem">The Problem</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="solution">Our Solution</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="step1">Step 1: EventBridge</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="step2">Step 2: SNS Topic</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="step3">Step 3: Lambda (Optional)</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="step4">Step 4: Versus & Slack</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="step5">Step 5: Testing</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-purple-400 hover:text-purple-500" data-tab="conclusion">Conclusion</button>
+        </nav>
+
+        <main class="bg-white p-6 sm:p-8 rounded-lg shadow-xl">
+            <section id="intro" class="tab-content active">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Introduction</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Welcome to the EC2 Watchtower guide! This interactive tutorial will show you how to build a real-time alerting system for your Amazon EC2 instance state changes. By leveraging AWS services like EventBridge and SNS, optionally enhancing messages with Lambda, and integrating with Versus Incident for Slack notifications, you'll gain immediate visibility into crucial events like instance starts, stops, and terminations. This proactive approach is vital for maintaining operational stability, managing costs, and ensuring security.</p>
+            </section>
+
+            <section id="problem" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">The Problem: Why Monitor EC2 State Changes?</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">In a dynamic cloud environment, EC2 instances can change state frequently due to auto-scaling, deployments, scheduled tasks, or unexpected issues. Without real-time monitoring:</p>
+                <ul class="list-disc list-inside mb-4 space-y-2 text-slate-700">
+                    <li><strong>Operational Blind Spots:</strong> Critical application instances might stop or terminate without your immediate knowledge, leading to downtime.</li>
+                    <li><strong>Cost Overruns:</strong> Instances that should have terminated might continue running, incurring unnecessary charges.</li>
+                    <li><strong>Security Concerns:</strong> Unexpected instance launches could indicate unauthorized activity.</li>
+                    <li><strong>Delayed Troubleshooting:</strong> Identifying the root cause of issues becomes harder without a clear timeline of instance state changes.</li>
+                </ul>
+                <p class="text-slate-700 leading-relaxed">Proactive alerts provide the awareness needed to address these challenges swiftly.</p>
+            </section>
+
+            <section id="solution" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Our Solution: Toolkit & Workflow</h2>
+                <p class="mb-6 text-slate-700 leading-relaxed">We'll construct an alerting pipeline using the following AWS services and tools:</p>
+                <ul class="list-disc list-inside mb-6 space-y-2 text-slate-700">
+                    <li><i class="fas fa-server mr-2 icon-ec2"></i><strong>Amazon EC2:</strong> The source of the instance state change events.</li>
+                    <li><i class="fas fa-network-wired mr-2 icon-eventbridge"></i><strong>Amazon EventBridge:</strong> To capture specific EC2 state change events.</li>
+                    <li><i class="fas fa-paper-plane mr-2 icon-sns"></i><strong>Amazon SNS:</strong> To publish notifications from EventBridge (and optionally Lambda).</li>
+                    <li><i class="fas fa-bolt mr-2 icon-lambda"></i><strong>AWS Lambda (Optional):</strong> To process and enrich event details for clearer alerts.</li>
+                    <li><i class="fas fa-cogs mr-2 icon-versus"></i><strong>Versus Incident:</strong> To receive SNS notifications and forward them to Slack.</li>
+                    <li><i class="fab fa-slack mr-2 icon-slack"></i><strong>Slack:</strong> Our final destination for real-time alerts.</li>
+                </ul>
+                <h3 class="text-xl font-semibold mb-4 text-slate-800">Overall Workflow Diagram</h3>
+                <div class="workflow-diagram my-6">
+                    <div class="workflow-step"><i class="fas fa-server mr-2 icon-ec2"></i>EC2 Instance State Change</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-network-wired mr-2 icon-eventbridge"></i>EventBridge Rule</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic 1 (Raw)</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-bolt mr-2 icon-lambda"></i>Lambda (Optional Enrichment)</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic 2 (Processed)</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fas fa-cogs mr-2 icon-versus"></i>Versus Incident</div>
+                    <div class="workflow-arrow vertical-mobile"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-arrow horizontal-desktop"><i class="fas fa-arrow-right"></i></div>
+                    <div class="workflow-step"><i class="fab fa-slack mr-2 icon-slack"></i>Slack Alert</div>
+                </div>
+            </section>
+
+            <section id="step1" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Step 1: Setting up the EventBridge Rule</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Amazon EventBridge allows us to react to events in our AWS environment. We'll create a rule to specifically capture EC2 instance state changes.</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Navigate to the Amazon EventBridge console.</li>
+                    <li>Under "Event bus," select your default event bus.</li>
+                    <li>Click "Create rule."</li>
+                    <li>Give your rule a meaningful name (e.g., `EC2StateChangeMonitorRule`) and description.</li>
+                    <li>In the "Define pattern" section, select "Event pattern."</li>
+                    <li>Choose "Pre-defined pattern by service."
+                        <ul class="list-disc list-inside ml-6 mt-1 space-y-1">
+                            <li>Service provider: `AWS`</li>
+                            <li>Service name: `EC2`</li>
+                            <li>Event type: `EC2 Instance State-change Notification`</li>
+                        </ul>
+                    </li>
+                    <li>This pre-defined pattern is a good start. You can also use a "Custom pattern" for more granularity.
+                        <div class="details-toggle mt-2 mb-1" onclick="toggleDetails('eventbridge-custom-pattern')"><i class="fas fa-plus-circle mr-1"></i> Show Example Custom Event Pattern (JSON)</div>
+                        <div id="eventbridge-custom-pattern" class="details-content">
+                            <p class="text-sm text-slate-600 mb-2">This pattern captures `running`, `stopped`, `stopping`, and `terminated` states for any instance. You can add specific instance IDs if needed.</p>
+                            <div class="code-block">
+                                <pre><code>{
+  "source": ["aws.ec2"],
+  "detail-type": ["EC2 Instance State-change Notification"],
+  "detail": {
+    "state": ["running", "stopped", "stopping", "terminated"]
+  }
+}</code></pre>
+                                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                            </div>
+                        </div>
+                    </li>
+                    <li>In the "Select targets" section, choose "SNS topic" as the target.</li>
+                    <li>Select an existing SNS topic or create a new one (we'll detail SNS topic creation in Step 2). Let's assume you'll create one named `EC2StateChangeRawEventsTopic`.</li>
+                    <li>Click "Create."</li>
+                </ol>
+            </section>
+
+            <section id="step2" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Step 2: Creating the Primary SNS Topic</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">This SNS topic will receive the raw event data from EventBridge.</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Navigate to the Amazon SNS console.</li>
+                    <li>Click "Topics" and then "Create topic."</li>
+                    <li>Choose "Standard" as the type.</li>
+                    <li>Name your topic (e.g., `EC2StateChangeRawEventsTopic`). This should match the topic name you specified as the target in your EventBridge rule.</li>
+                    <li>Keep default settings for access policy, encryption, etc., unless you have specific requirements.</li>
+                    <li>Click "Create topic." Make a note of the Topic ARN.</li>
+                </ol>
+                <div class="mt-4 p-4 bg-sky-50 border border-sky-200 rounded-md text-sky-700">
+                    <i class="fas fa-info-circle mr-2"></i>This SNS topic now acts as the immediate recipient of EC2 state change events detected by EventBridge.
+                </div>
+            </section>
+
+            <section id="step3" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Step 3 (Optional but Recommended): Enhancing Alerts with AWS Lambda</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">The raw JSON event from EventBridge can be verbose. A Lambda function can process this event, extract key information, and format a more human-readable message. This enriched message can then be published to a *second* SNS topic.</p>
+                
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">1. Create the Lambda Function</h3>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Navigate to the AWS Lambda console and click "Create function."</li>
+                    <li>Choose "Author from scratch."</li>
+                    <li>Function name: e.g., `FormatEC2StateChangeAlert`.</li>
+                    <li>Runtime: Choose Python or Node.js (example below in Python).</li>
+                    <li>Architecture: Choose as appropriate (e.g., `x86_64`).</li>
+                    <li>Permissions: Create a new role with basic Lambda permissions, or use an existing one. This role will need permissions to publish to SNS (for the secondary topic).</li>
+                    <li>Click "Create function."</li>
+                </ol>
+
+                <div class="details-toggle mt-4 mb-1" onclick="toggleDetails('lambda-python-code')"><i class="fas fa-plus-circle mr-1 icon-code"></i> Show Example Lambda (Python) Code</div>
+                <div id="lambda-python-code" class="details-content">
+                    <p class="text-sm text-slate-600 mb-2">This Python code extracts relevant details and publishes a formatted message to another SNS topic.</p>
+                    <div class="code-block">
+                        <pre><code>import json
+import os
+import boto3
+
+# Initialize SNS client
+sns = boto3.client('sns')
+# Get the target SNS topic ARN from environment variable
+TARGET_SNS_TOPIC_ARN = os.environ['TARGET_SNS_TOPIC_ARN']
+
+def lambda_handler(event, context):
+    try:
+        # EventBridge events are often wrapped in a list when coming from SNS
+        ec2_event = event['Records'][0]['Sns']['Message']
+        if isinstance(ec2_event, str):
+            ec2_event = json.loads(ec2_event)
+
+        instance_id = ec2_event['detail']['instance-id']
+        state = ec2_event['detail']['state']
+        event_time = ec2_event['time']
+        region = ec2_event['region']
+        
+        # You can fetch instance tags here if needed using ec2.describe_tags
+        # For simplicity, we'll just use the instance ID and state.
+        
+        message = f"EC2 Instance State Change Alert!\n"\
+                  f"Instance ID: {instance_id}\n"\
+                  f"New State: {state.upper()}\n"\
+                  f"Region: {region}\n"\
+                  f"Time: {event_time}"
+                  
+        subject = f"EC2 Alert: {instance_id} is now {state.upper()}"
+
+        response = sns.publish(
+            TopicArn=TARGET_SNS_TOPIC_ARN,
+            Message=message,
+            Subject=subject
+        )
+        
+        print(f"Message published to SNS: {response['MessageId']}")
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Alert processed and forwarded!')
+        }
+    except Exception as e:
+        print(f"Error processing event: {e}")
+        # Optionally, send to a dead-letter queue (DLQ)
+        raise e</code></pre>
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-2"><strong>Configuration:</strong></p>
+                    <ul class="list-disc list-inside ml-4 text-sm text-slate-600">
+                        <li>Set an environment variable for your Lambda function: `TARGET_SNS_TOPIC_ARN` with the ARN of your *secondary* SNS topic (created next).</li>
+                        <li>Ensure the Lambda execution role has `sns:Publish` permissions for the target SNS topic.</li>
+                    </ul>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">2. Create a Secondary SNS Topic (for Processed Alerts)</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">Create another SNS topic (e.g., `EC2StateChangeProcessedAlertsTopic`) just like in Step 2. This will be the `TARGET_SNS_TOPIC_ARN` for your Lambda function.</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">3. Subscribe Lambda to the Primary SNS Topic</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">In the Lambda function configuration, add a trigger. Select "SNS" and choose your primary SNS topic (`EC2StateChangeRawEventsTopic`).</p>
+            </section>
+
+            <section id="step4" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Step 4: Configuring Versus Incident for Slack</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Versus Incident will now subscribe to your SNS topic (either the primary raw topic or the secondary processed topic if you used Lambda) and forward alerts to Slack.</p>
+                
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">1. Deploy Versus Incident</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">If not already running, deploy Versus Incident. Ensure `SNS_ENABLE=true` is set in its environment variables, along with your Slack token and channel ID.</p>
+                <div class="code-block">
+                    <pre><code>docker run -d \
+  -p 3000:3000 \
+  -e SLACK_ENABLE=true \
+  -e SLACK_TOKEN="your_slack_bot_token" \
+  -e SLACK_CHANNEL_ID="your_slack_channel_id" \
+  -e SNS_ENABLE=true \
+  --name versus-ec2-alerts \
+  ghcr.io/versuscontrol/versus-incident</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="mb-4 text-slate-700 text-sm italic">Remember to expose Versus Incident publicly (e.g., via ngrok) if running locally.</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">2. Subscribe Versus Incident to the SNS Topic</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Subscribe your Versus Incident's `/sns` endpoint to the appropriate SNS topic ARN (either `EC2StateChangeRawEventsTopic` or `EC2StateChangeProcessedAlertsTopic`).</p>
+                <div class="code-block">
+                    <pre><code>aws sns subscribe \
+  --topic-arn arn:aws:sns:us-east-1:123456789012:YOUR_CHOSEN_SNS_TOPIC_ARN \
+  --protocol https \
+  --notification-endpoint https://your-versus-public-url/sns</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">3. Custom Slack Template for EC2 Alerts</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Create a custom template in your Versus Incident `config` directory (e.g., `config/slack_ec2_alert_template.tmpl`).</p>
+                <div class="details-toggle mt-2 mb-1" onclick="toggleDetails('slack-ec2-template')"><i class="fas fa-plus-circle mr-1 icon-code"></i> Show Example Slack Template</div>
+                <div id="slack-ec2-template" class="details-content">
+                    <p class="text-sm text-slate-600 mb-2">This template assumes you are using the processed message from Lambda. If using raw EventBridge events, you'll need to access fields like `{{.detail.instance-id}}` and `{{.detail.state}}`.</p>
+                    <div class="code-block">
+                        <pre><code># If using Lambda-processed message (plain text in SNS message body):
+🚨 EC2 Instance State Change! 🚨
+
+{{.Message}}
+
+# If directly from EventBridge (SNS message is JSON string of the event):
+# You'd parse the JSON or access fields like:
+# Instance ID: {{.detail.instance-id}}
+# State: {{.detail.state}}
+# Region: {{.region}}
+# Time: {{.time}}
+
+{{ if .AckURL }}[Acknowledge this alert]({{.AckURL}}){{ end }}</code></pre>
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-2">Update your Versus Incident `config.yaml` to use this template for Slack.</p>
+                </div>
+            </section>
+
+            <section id="step5" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Step 5: Testing Your EC2 Watchtower</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Time to see your Watchtower in action!</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Select an EC2 instance (or launch a new test instance).</li>
+                    <li>Change its state:
+                        <ul class="list-disc list-inside ml-6 mt-1 space-y-1">
+                            <li>If it's running, stop it.</li>
+                            <li>If it's stopped, start it.</li>
+                            <li>Terminate it (be sure it's a test instance!).</li>
+                        </ul>
+                    </li>
+                    <li>Monitor your Slack channel. Within a few moments (EventBridge and SNS are usually very fast, Lambda adds a slight delay), you should receive an alert detailing the state change.</li>
+                    <li>Check EventBridge metrics and SNS delivery logs if you don't receive an alert, to troubleshoot the pipeline.</li>
+                </ol>
+            </section>
+
+            <section id="conclusion" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-purple-600">Conclusion: Enhanced EC2 Visibility</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Congratulations! You've built an EC2 Watchtower that provides real-time visibility into your instance state changes. This setup empowers you to react quickly to operational events, manage costs more effectively, and enhance your overall AWS security posture.</p>
+                <p class="text-slate-700 leading-relaxed">From here, you could consider extending this solution by:
+                    <ul class="list-disc list-inside mt-2 space-y-1 text-slate-700">
+                        <li>Filtering EventBridge rules for specific instance tags or types.</li>
+                        <li>Triggering automated remediation actions via Lambda based on certain state changes.</li>
+                        <li>Integrating with other monitoring or incident management systems.</li>
+                    </ul>
+                </p>
+            </section>
+        </main>
+    </div>
+
+    <div id="copy-tooltip" class="tooltip">Copied to clipboard!</div>
+
+    <script>
+        const tabs = document.querySelectorAll('.tab-button');
+        const contents = document.querySelectorAll('.tab-content');
+        const tooltip = document.getElementById('copy-tooltip');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(item => item.classList.remove('active'));
+                tab.classList.add('active');
+
+                const target = tab.getAttribute('data-tab');
+                contents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === target) {
+                        content.classList.add('active');
+                    }
+                });
+                // Scroll to top of main content area on tab change for better UX on mobile
+                document.querySelector('main').scrollTop = 0; 
+            });
+        });
+
+        function copyToClipboard(button) {
+            const codeBlock = button.previousElementSibling;
+            const textToCopy = codeBlock.textContent;
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showTooltip(button);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showTooltip(button) {
+            const rect = button.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + window.scrollX}px`;
+            tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            tooltip.classList.add('show');
+            setTimeout(() => {
+                tooltip.classList.remove('show');
+            }, 1500);
+        }
+        
+        function toggleDetails(elementId) {
+            const content = document.getElementById(elementId);
+            const iconElement = content.previousElementSibling.querySelector('i');
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                iconElement.classList.remove('fa-minus-circle');
+                iconElement.classList.add('fa-plus-circle');
+            } else {
+                content.style.display = 'block';
+                iconElement.classList.remove('fa-plus-circle');
+                iconElement.classList.add('fa-minus-circle');
+            }
+        }
+
+        // Initialize: Show the first tab content
+        if (contents.length > 0) {
+            contents[0].classList.add('active');
+        }
+        if (tabs.length > 0) {
+            tabs[0].classList.add('active');
+        }
+    </script>
+</body>
+</html>

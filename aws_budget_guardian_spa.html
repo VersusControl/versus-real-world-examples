@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Budget Guardian: Real-time Cost Anomaly Alerts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Visualization & Content Choices:
+        - Overall Workflow Diagram (HTML/CSS with Animation): Goal: Inform/Organize. Shows high-level process with animated flow. Interaction: None, static visual with animation. Justification: Provides context and visual interest. Method: HTML/CSS boxes and arrows, CSS keyframe animations for flow.
+        - Text Blocks: Goal: Inform. JS show/hide for details. Justification: Manages information density.
+        - Code Snippets (JSON policies, Python Lambda, Go Template): Goal: Inform/Enable. JS copy-to-clipboard. Justification: User utility. Method: <pre><code> styled with Tailwind.
+        - No data charts are needed as this is a how-to guide.
+        -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-color: #22c55e; /* green-500 for budget theme */
+            color: #22c55e;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .code-block {
+            position: relative;
+            background-color: #1f2937; /* gray-800 */
+            color: #d1d5db; /* gray-300 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4b5563; /* gray-600 */
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .copy-button:hover {
+            background-color: #6b7280; /* gray-500 */
+        }
+        .tooltip {
+            position: fixed;
+            background-color: #10b981; /* green-500 */
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .tooltip.show {
+            opacity: 1;
+        }
+        .details-toggle {
+            cursor: pointer;
+            color: #16a34a; /* green-600 */
+            font-weight: 500;
+        }
+        .details-content {
+            display: none;
+            margin-top: 0.5rem;
+            padding-left: 1rem;
+            border-left: 2px solid #e5e7eb; /* gray-200 */
+        }
+
+        .workflow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0px; 
+            padding: 1rem;
+            background-color: #f9fafb; 
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb; 
+        }
+
+        @keyframes highlight-step-refined {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+                opacity: 0.7;
+            }
+            50% {
+                transform: scale(1.03);
+                box-shadow: 0 0 15px 3px rgba(34, 197, 94, 0.4); /* Glow effect */
+                opacity: 1;
+            }
+        }
+
+        .workflow-step {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db; 
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.375rem;
+            text-align: center;
+            min-width: 220px; 
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            width: fit-content; 
+            max-width: 90%;
+            margin-bottom: 0.25rem; 
+            animation: highlight-step-refined 4s ease-in-out infinite;
+        }
+        
+        @keyframes flow-arrow {
+            0%, 100% { color: #9ca3af; opacity: 0.6; transform: translateY(0px) scale(1); }
+            25% { color: #22c55e; opacity: 1; transform: translateY(-2px) scale(1.1); }
+            50% { color: #16a34a; opacity: 0.8; transform: translateY(0px) scale(1.05); }
+            75% { color: #22c55e; opacity: 1; transform: translateY(2px) scale(1.1); }
+        }
+
+        .workflow-arrow {
+            color: #9ca3af; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem; 
+            line-height: 1;
+            height: 30px; 
+            animation: flow-arrow 1.5s ease-in-out infinite;
+        }
+        
+        /* Sequential Animation Delays */
+        .workflow-diagram > *:nth-child(1)  { animation-delay: 0s; }    /* Step 1 */
+        .workflow-diagram > *:nth-child(2)  { animation-delay: 0.3s; }  /* Arrow 1 */
+        .workflow-diagram > *:nth-child(3)  { animation-delay: 0.6s; }  /* Step 2 */
+        .workflow-diagram > *:nth-child(4)  { animation-delay: 0.9s; }  /* Arrow 2 */
+        .workflow-diagram > *:nth-child(5)  { animation-delay: 1.2s; }  /* Step 3 */
+        .workflow-diagram > *:nth-child(6)  { animation-delay: 1.5s; }  /* Arrow 3 */
+        .workflow-diagram > *:nth-child(7)  { animation-delay: 1.8s; }  /* Step 4 */
+        .workflow-diagram > *:nth-child(8)  { animation-delay: 2.1s; }  /* Arrow 4 */
+        .workflow-diagram > *:nth-child(9)  { animation-delay: 2.4s; }  /* Step 5 */
+        .workflow-diagram > *:nth-child(10) { animation-delay: 2.7s; }  /* Arrow 5 */
+        .workflow-diagram > *:nth-child(11) { animation-delay: 3.0s; }  /* Step 6 */
+
+
+        .icon-cost { color: #16a34a; } 
+        .icon-sns { color: #D82C22; } 
+        .icon-lambda { color: #FF8C00; } 
+        .icon-versus { color: #4A5568; } 
+        .icon-slack { color: #4A154B; } 
+        .icon-code { color: #2563eb; }
+        .icon-aws { color: #FF9900; }
+        .icon-graph { color: #ec4899; } 
+
+
+         .home-link {
+            display: inline-block;
+            margin-bottom: 1.5rem; 
+            font-size: 0.875rem; 
+            color: #4b5563; 
+            transition: color 0.3s ease;
+        }
+        .home-link:hover {
+            color: #22c55e; 
+        }
+
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+        
+        <div class="text-left">
+            <a href="index.html" class="home-link group">
+                <i class="fas fa-home mr-1 opacity-75 group-hover:opacity-100"></i> Back to All Guides
+            </a>
+        </div>
+
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">AWS Budget Guardian: Real-time Cost Anomaly Alerts</h1>
+            <p class="mt-2 text-lg text-slate-600">Keep your AWS spending in check! Get instant Slack alerts for unexpected budget spikes.</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center border-b border-slate-300">
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600 active" data-tab="intro">Introduction</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="problem">The Bill Shock</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="solution">Our Shield</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="step1">Step 1: Cost Anomaly Detection</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="step2">Step 2: SNS Notifications</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="step3">Step 3: Lambda (Optional)</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="step4">Step 4: Versus & Slack</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="step5">Step 5: Testing</button>
+            <button class="tab-button p-3 sm:p-4 text-sm sm:text-base border-b-2 border-transparent hover:border-green-500 hover:text-green-600" data-tab="conclusion">Conclusion</button>
+        </nav>
+
+        <main class="bg-white p-6 sm:p-8 rounded-lg shadow-xl">
+            <section id="intro" class="tab-content active">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Introduction to AWS Cost Anomaly Detection</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Welcome to the AWS Budget Guardian guide! Unexpected spikes in your AWS bill can be a major headache. This interactive tutorial will guide you through setting up AWS Cost Anomaly Detection to identify unusual spending patterns and then pipe those findings into Slack for immediate awareness. By using this service along with SNS, an optional Lambda for better alert formatting, and Versus Incident, you can gain proactive control over your AWS costs and prevent budget overruns before they escalate.</p>
+            </section>
+
+            <section id="problem" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">The Bill Shock Problem: Why Monitor Costs?</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">In the flexible world of cloud computing, it's easy for costs to escalate unexpectedly due to:</p>
+                <ul class="list-disc list-inside mb-4 space-y-2 text-slate-700">
+                    <li><strong>Resource Misconfigurations:</strong> Accidentally provisioning oversized instances or storage.</li>
+                    <li><strong>Unused Resources:</strong> Forgetting to terminate test environments or unneeded services.</li>
+                    <li><strong>Traffic Spikes:</strong> Sudden legitimate (or illegitimate, e.g., DDoS) increases in demand.</li>
+                    <li><strong>New Service Usage:</strong> Experimenting with new AWS services without fully understanding their pricing.</li>
+                    <li><strong>Compromised Accounts:</strong> Malicious actors running resource-intensive workloads.</li>
+                </ul>
+                <p class="text-slate-700 leading-relaxed">Without proactive anomaly detection and alerting, these can lead to significant "bill shock" at the end of the month.</p>
+            </section>
+
+            <section id="solution" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Our Shield: Toolkit & Workflow</h2>
+                <p class="mb-6 text-slate-700 leading-relaxed">We'll build our cost monitoring shield using:</p>
+                <ul class="list-disc list-inside mb-6 space-y-2 text-slate-700">
+                    <li><i class="fas fa-search-dollar mr-2 icon-cost"></i><strong>AWS Cost Anomaly Detection:</strong> To identify unusual spending.</li>
+                    <li><i class="fas fa-paper-plane mr-2 icon-sns"></i><strong>Amazon SNS:</strong> For publishing anomaly findings.</li>
+                    <li><i class="fas fa-bolt mr-2 icon-lambda"></i><strong>AWS Lambda (Optional):</strong> To process and format anomaly details for clearer alerts.</li>
+                    <li><i class="fas fa-cogs mr-2 icon-versus"></i><strong>Versus Incident:</strong> To receive SNS notifications and forward them to Slack.</li>
+                    <li><i class="fab fa-slack mr-2 icon-slack"></i><strong>Slack:</strong> For receiving real-time cost anomaly alerts.</li>
+                </ul>
+                <h3 class="text-xl font-semibold mb-4 text-slate-800">Overall Workflow Diagram</h3>
+                <div class="workflow-diagram my-6">
+                    <div class="workflow-step"><i class="fas fa-search-dollar mr-2 icon-cost"></i>AWS Cost Anomaly Detection</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic (Anomaly Finding)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-bolt mr-2 icon-lambda"></i>Lambda (Optional Formatting)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-paper-plane mr-2 icon-sns"></i>SNS Topic (Formatted Alert)</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fas fa-cogs mr-2 icon-versus"></i>Versus Incident</div>
+                    <div class="workflow-arrow"><i class="fas fa-arrow-down"></i></div>
+                    <div class="workflow-step"><i class="fab fa-slack mr-2 icon-slack"></i>Slack Alert</div>
+                </div>
+            </section>
+
+            <section id="step1" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Step 1: Setting Up AWS Cost Anomaly Detection</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">AWS Cost Anomaly Detection uses machine learning to identify anomalous spend patterns.</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Navigate to the **AWS Cost Management** console.</li>
+                    <li>In the navigation pane, choose **Anomaly Detection**.</li>
+                    <li>Click **Get started**. If you've used it before, you'll manage existing monitors or create new ones.</li>
+                    <li>**Create an anomaly monitor:**
+                        <ul class="list-disc list-inside ml-6 mt-1 space-y-1">
+                            <li>**Monitor type:** You can monitor AWS services, member accounts (if in an Organization), cost categories, or cost allocation tags. Start with "AWS services" for broad coverage.</li>
+                            <li>**Monitor name:** Give it a descriptive name, e.g., `AllServicesDailyAnomalyMonitor`.</li>
+                            <li>**Evaluation frequency:** Typically daily.</li>
+                        </ul>
+                    </li>
+                    <li>Click **Create monitor**.</li>
+                    <li>**Create an alert subscription:**
+                        <ul class="list-disc list-inside ml-6 mt-1 space-y-1">
+                            <li>Once the monitor is created (or select an existing one), go to the **Alert subscriptions** tab.</li>
+                            <li>Click **Create alert subscription**.</li>
+                            <li>**Threshold:** Define your alert threshold. This can be an absolute value (e.g., alert if anomaly total impact is greater than $50) or a percentage of expected spend. Start with a reasonable absolute value.</li>
+                            <li>**Frequency:** Choose "Individual alerts" for immediate notification or "Daily/Weekly summaries." Individual alerts are best for quick reaction.</li>
+                            <li>**Recipients:** Select an existing SNS topic or create a new one for these alerts. This will be our primary SNS topic. Let's name it `CostAnomalyFindingsTopic`.</li>
+                        </ul>
+                    </li>
+                    <li>Click **Create subscription**.</li>
+                </ol>
+                <p class="text-slate-700 leading-relaxed">AWS Cost Anomaly Detection will now start monitoring your spend and will publish findings that exceed your threshold to the specified SNS topic.</p>
+            </section>
+
+            <section id="step2" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Step 2: SNS Topic for Anomaly Notifications</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">If you didn't create the SNS topic during the Cost Anomaly Detection setup, or if you want to verify its configuration:</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li>Navigate to the Amazon SNS console.</li>
+                    <li>Click "Topics," then "Create topic."</li>
+                    <li>Type: "Standard."</li>
+                    <li>Name: e.g., `CostAnomalyFindingsTopic`.</li>
+                    <li>**Access policy (Important):** AWS Cost Anomaly Detection needs permission to publish to this topic. If you created the topic via the Cost Management console, this is usually set up automatically. If creating manually, you might need to add a policy statement.
+                        <div class="details-toggle mt-2 mb-1" onclick="toggleDetails('sns-cost-policy')"><i class="fas fa-plus-circle mr-1"></i> Show Example SNS Access Policy Statement</div>
+                        <div id="sns-cost-policy" class="details-content">
+                            <p class="text-sm text-slate-600 mb-2">This allows the `costalerts.amazonaws.com` service principal to publish to your topic.</p>
+                            <div class="code-block">
+                                <pre><code>{
+  "Sid": "CostAnomalyDetectionSNSPublish",
+  "Effect": "Allow",
+  "Principal": {
+    "Service": "costalerts.amazonaws.com"
+  },
+  "Action": "SNS:Publish",
+  "Resource": "arn:aws:sns:REGION:ACCOUNT_ID:CostAnomalyFindingsTopic"
+}</code></pre>
+                                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                            </div>
+                             <p class="text-sm text-slate-600 mt-2">Replace `REGION`, `ACCOUNT_ID`, and your topic name accordingly. Add this to the topic's access policy JSON.</p>
+                        </div>
+                    </li>
+                    <li>Click "Create topic." Note the Topic ARN.</li>
+                </ol>
+            </section>
+
+            <section id="step3" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Step 3 (Optional): Lambda for Custom Alert Formatting</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">The JSON payload from Cost Anomaly Detection can be detailed. A Lambda function can extract the most relevant information and format a user-friendly message.</p>
+                
+                <h3 class="text-xl font-semibold mb-2 text-slate-800">1. Create Lambda Function</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">Create a Lambda function (e.g., `FormatCostAnomalyAlert`), choose a runtime, and assign basic permissions plus SNS publish rights to a *secondary* SNS topic.</p>
+
+                <div class="details-toggle mt-4 mb-1" onclick="toggleDetails('lambda-cost-code')"><i class="fas fa-plus-circle mr-1 icon-code"></i> Show Example Lambda (Python) Code for Cost Anomalies</div>
+                <div id="lambda-cost-code" class="details-content">
+                    <p class="text-sm text-slate-600 mb-2">This Python code parses the anomaly finding.</p>
+                    <div class="code-block">
+                        <pre><code>import json
+import os
+import boto3
+
+sns = boto3.client('sns')
+TARGET_SNS_TOPIC_ARN = os.environ['TARGET_SNS_TOPIC_ARN_COST']
+
+def lambda_handler(event, context):
+    try:
+        # The message from Cost Anomaly Detection via SNS is a JSON string
+        anomaly_message_str = event['Records'][0]['Sns']['Message']
+        anomaly_data = json.loads(anomaly_message_str)
+        
+        # Extract relevant details (structure may vary slightly, check AWS docs)
+        anomaly_id = anomaly_data.get('anomalyId', 'N/A')
+        monitor_arn = anomaly_data.get('monitorArn', 'N/A').split('/')[-1] # Get monitor name
+        impact = anomaly_data.get('impact', {})
+        total_impact = impact.get('totalImpact', 0)
+        total_impact_percentage = impact.get('totalImpactPercentage', 0)
+        anomaly_start_date = anomaly_data.get('anomalyStartDate', 'N/A')
+        anomaly_end_date = anomaly_data.get('anomalyEndDate', 'N/A')
+        root_causes = anomaly_data.get('rootCauses', [])
+        
+        root_cause_summary = "Root causes:\n"
+        if root_causes:
+            for rc in root_causes:
+                service = rc.get('service', 'N/A')
+                region = rc.get('region', 'N/A')
+                usage_type = rc.get('usageType', 'N/A')
+                linked_account = rc.get('linkedAccount', 'N/A')
+                impact_for_rc = rc.get('impact', {}).get('totalImpact', 0)
+                root_cause_summary += f"- Service: {service}, Account: {linked_account}, Region: {region}, Usage: {usage_type}, Impact: ${impact_for_rc:.2f}\n"
+        else:
+            root_cause_summary = "No detailed root causes provided in this alert."
+
+        message = f"AWS Cost Anomaly Detected!\n\n"\
+                  f"Monitor: {monitor_arn}\n"\
+                  f"Anomaly ID: {anomaly_id}\n"\
+                  f"Total Impact: ${total_impact:.2f} ({total_impact_percentage:.2f}% of expected)\n"\
+                  f"Period: {anomaly_start_date} to {anomaly_end_date}\n\n"\
+                  f"{root_cause_summary}"
+                  
+        subject = f"Cost Anomaly Alert: Impact ${total_impact:.2f}"
+
+        sns.publish(
+            TopicArn=TARGET_SNS_TOPIC_ARN,
+            Message=message,
+            Subject=subject
+        )
+        return {'statusCode': 200, 'body': 'Cost Anomaly Alert processed!'}
+    except Exception as e:
+        print(f"Error processing cost anomaly event: {e}")
+        raise e</code></pre>
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-2"><strong>Configuration:</strong></p>
+                    <ul class="list-disc list-inside ml-4 text-sm text-slate-600">
+                        <li>Environment variable: `TARGET_SNS_TOPIC_ARN_COST` with your secondary SNS topic ARN.</li>
+                        <li>Ensure Lambda role has `sns:Publish` permission for this secondary topic.</li>
+                    </ul>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">2. Create Secondary SNS Topic</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">Create a topic like `CostAnomalyFormattedAlertsTopic` for Lambda to publish to.</p>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">3. Subscribe Lambda to Primary SNS Topic</h3>
+                <p class="mb-4 text-slate-700 leading-relaxed">In Lambda, add a trigger from `CostAnomalyFindingsTopic`.</p>
+            </section>
+
+            <section id="step4" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Step 4: Versus Incident & Slack Integration</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Configure Versus Incident to subscribe to your chosen SNS topic (either `CostAnomalyFindingsTopic` or `CostAnomalyFormattedAlertsTopic`) and send alerts to Slack.</p>
+                
+                <div class="details-toggle mt-2 mb-1" onclick="toggleDetails('versus-cost-setup')"><i class="fas fa-plus-circle mr-1"></i> Show Versus Incident Setup Reminders</div>
+                <div id="versus-cost-setup" class="details-content">
+                     <p class="text-sm text-slate-600 mb-2">Refer to previous guides for Docker deployment and SNS subscription CLI commands. Ensure Versus Incident's `/sns` endpoint is subscribed to the correct SNS Topic ARN for cost anomalies.</p>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-2 mt-6 text-slate-800">Custom Slack Template for Cost Anomaly Alerts</h3>
+                <p class="mb-2 text-slate-700 leading-relaxed">Create a template (e.g., `config/slack_cost_anomaly_template.tmpl`) in Versus Incident.</p>
+                <div class="code-block">
+                    <pre><code># If using Lambda-processed message:
+💰 AWS Cost Anomaly Alert! 💰
+
+{{.Message}}
+
+# If directly from Cost Anomaly Detection SNS (raw JSON):
+# You would need to parse the JSON string in .Message
+# Example (conceptual, actual fields depend on Cost Anomaly JSON structure):
+# Anomaly ID: {{ (json .Message).anomalyId }}
+# Total Impact: ${{ (json .Message).impact.totalImpact }}
+
+{{ if .AckURL }}[Acknowledge this alert]({{.AckURL}}){{ end }}</code></pre>
+                    <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                </div>
+                <p class="text-sm text-slate-600 mt-2">Update your Versus Incident `config.yaml` to use this template.</p>
+            </section>
+
+            <section id="step5" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Step 5: Testing & Understanding Alerts</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Testing Cost Anomaly Detection directly is challenging as it relies on historical data and ML. However, you can:</p>
+                <ol class="list-decimal list-inside space-y-3 mb-4 text-slate-700">
+                    <li><strong>Review Sample Events:</strong> AWS documentation provides sample event JSONs for Cost Anomaly Detection. You can manually publish such a sample to your primary SNS topic to test the Lambda (if used) and the Versus Incident to Slack pipeline.</li>
+                    <li><strong>Lower Thresholds Temporarily (Caution):</strong> For a *very short period* on a *non-critical* monitor, you could set a very low anomaly threshold (e.g., $1) to increase the chance of an alert. Revert immediately after testing.</li>
+                    <li><strong>Wait for Real Anomalies:</strong> Once configured, the system will alert you when AWS detects a genuine anomaly based on your settings.</li>
+                    <li><strong>Understand the Alert:</strong> When an alert arrives, review the details provided (impact, root causes, affected services/accounts). Use the AWS Cost Management console to dive deeper into the anomaly.</li>
+                </ol>
+            </section>
+
+            <section id="conclusion" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4 text-green-600">Conclusion: Proactive Cost Management</h2>
+                <p class="mb-4 text-slate-700 leading-relaxed">Congratulations! You've set up the "AWS Budget Guardian." This system provides timely alerts for unexpected cost spikes, enabling you to investigate quickly, take corrective action, and maintain better control over your AWS spending. This proactive approach is key to avoiding bill shock and fostering a cost-aware culture within your team.</p>
+                 <p class="text-slate-700 leading-relaxed">Consider creating multiple anomaly monitors for different scopes (e.g., specific services, linked accounts, or tags) and tailoring alert subscriptions for each.</p>
+            </section>
+        </main>
+    </div>
+
+    <div id="copy-tooltip" class="tooltip">Copied to clipboard!</div>
+
+    <script>
+        const tabs = document.querySelectorAll('.tab-button');
+        const contents = document.querySelectorAll('.tab-content');
+        const tooltip = document.getElementById('copy-tooltip');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(item => item.classList.remove('active'));
+                tab.classList.add('active');
+
+                const target = tab.getAttribute('data-tab');
+                contents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === target) {
+                        content.classList.add('active');
+                    }
+                });
+                document.querySelector('main').scrollTop = 0; 
+            });
+        });
+
+        function copyToClipboard(button) {
+            const codeBlock = button.previousElementSibling;
+            const textToCopy = codeBlock.textContent;
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showTooltip(button);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy text. Please copy manually.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showTooltip(button) {
+            const rect = button.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + window.scrollX}px`;
+            tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            tooltip.classList.add('show');
+            setTimeout(() => {
+                tooltip.classList.remove('show');
+            }, 1500);
+        }
+        
+        function toggleDetails(elementId) {
+            const content = document.getElementById(elementId);
+            const iconElement = content.previousElementSibling.querySelector('i');
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                iconElement.classList.remove('fa-minus-circle');
+                iconElement.classList.add('fa-plus-circle');
+            } else {
+                content.style.display = 'block';
+                iconElement.classList.remove('fa-plus-circle');
+                iconElement.classList.add('fa-minus-circle');
+            }
+        }
+
+        if (contents.length > 0) {
+            contents[0].classList.add('active');
+        }
+        if (tabs.length > 0) {
+            tabs[0].classList.add('active');
+        }
+    </script>
+</body>
+</html>

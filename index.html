@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Versus Interactive Tech Guides</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Visualization & Content Choices:
+        - Post Listing (Cards): Goal: Inform & Navigate. Each card will display a summary of a guide and a link. Interaction: Click to navigate to the guide's HTML page. Justification: This is a standard and highly effective method for presenting a collection of articles or guides, allowing users to quickly scan and select. Method: HTML structure styled with Tailwind CSS for card layout.
+        - Icons for Visual Cues: Goal: Enhance visual appeal and provide quick thematic recognition for each guide. Method: Font Awesome icons within each card.
+        - No data charts (Chart.js/Plotly) are required for this index page as its purpose is navigation and listing, not data visualization.
+        -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -13,7 +18,7 @@
             transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
             display: flex;
             flex-direction: column;
-            height: 100%; /* Ensure cards in the same row try to match height if content varies slightly */
+            height: 100%; 
         }
         .guide-card:hover {
             transform: translateY(-6px);
@@ -27,20 +32,29 @@
             text-align: center;
             transition: background-color 0.3s ease;
         }
-        .book-card { /* Specific styling for book card if needed, inherits from guide-card */
-             height: auto; /* Override height for book card if it has an image that dictates its height */
+        .book-card { 
+             height: auto; 
+        }
+        .book-cover-container { /* New container for the book image */
+            width: 100%;
+            height: 450px; /* Taller height for the image area */
+            background-color: #f3f4f6; /* Light gray background for letterboxing */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* Ensure image doesn't overflow container */
+            border-bottom: 1px solid #e5e7eb; /* slate-200 */
         }
         .book-cover {
-            width: 100%;
-            height: 250px; /* Adjusted height for better prominence */
-            object-fit: cover; 
-            border-bottom: 1px solid #e5e7eb; /* slate-200 */
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Show full image, letterboxed if necessary */
         }
         .github-link {
             transition: color 0.3s ease;
         }
         .github-link:hover {
-            color: #4A5568; /* Versus Incident color for hover */
+            color: #4A5568; 
         }
     </style>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
@@ -70,6 +84,25 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     
+                    <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="p-6 guide-card-content">
+                            <div class="flex items-center mb-4">
+                                <span class="flex items-center justify-center h-12 w-12 bg-green-100 text-green-600 rounded-full mr-4 shrink-0">
+                                    <i class="fas fa-piggy-bank fa-lg"></i> 
+                                </span>
+                                <h3 class="text-xl font-semibold text-slate-800 leading-tight">AWS Budget Guardian: Cost Anomaly Alerts</h3>
+                            </div>
+                            <p class="text-slate-600 leading-relaxed mb-5 text-sm">
+                                Keep your AWS spending in check! Learn to use AWS Cost Anomaly Detection for instant Slack alerts on unexpected budget spikes.
+                            </p>
+                        </div>
+                        <div class="p-5 bg-slate-50 border-t border-slate-200">
+                             <a href="aws_budget_guardian_spa.html" class="guide-card-link w-full bg-green-500 text-white font-semibold py-3 px-5 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2" title="View AWS Budget Guardian Guide">
+                                View Guide <i class="fas fa-arrow-circle-right ml-2"></i>
+                            </a>
+                        </div>
+                    </article>
+
                     <article class="guide-card bg-white rounded-xl shadow-lg overflow-hidden">
                         <div class="p-6 guide-card-content">
                             <div class="flex items-center mb-4">
@@ -174,7 +207,9 @@
                 </h2>
                 <div class="max-w-2xl mx-auto"> 
                     <article class="guide-card book-card bg-white rounded-xl shadow-2xl overflow-hidden">
-                        <img src="https://d2sofvawe08yqg.cloudfront.net/on-call-in-action/s_hero2x?1747385227" alt="On-Call In Action Book Cover" class="book-cover">
+                        <div class="book-cover-container">
+                            <img src="https://d2sofvawe08yqg.cloudfront.net/on-call-in-action/s_hero2x?1747385227" alt="On-Call In Action Book Cover" class="book-cover">
+                        </div>
                         <div class="p-6 guide-card-content">
                             <div class="flex items-center mb-4">
                                 <span class="flex items-center justify-center h-12 w-12 bg-indigo-100 text-indigo-600 rounded-full mr-4 shrink-0">
